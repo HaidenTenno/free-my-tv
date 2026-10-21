@@ -31,7 +31,7 @@ public final class PowerSettingsActivity extends Activity {
     };
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final TimerRow[] rows = new TimerRow[3];
-    private final long[] draft = new long[3];
+    private PowerTimers draft;
     private PowerSettings.Snapshot actual;
     private Button apply, refresh;
     private TextView message;
@@ -131,12 +131,12 @@ public final class PowerSettingsActivity extends Activity {
     }
 
     private final class TimerRow extends LinearLayout {
-        final int index;
+        final PowerTimers.Kind kind;
         final TextView title, hint, value;
 
         TimerRow(int index, String label, String detail) {
             super(PowerSettingsActivity.this);
-            this.index = index;
+            this.kind = PowerTimers.Kind.values()[index];
             setId(View.generateViewId());
             setOrientation(HORIZONTAL);
             setGravity(Gravity.CENTER_VERTICAL);
@@ -184,12 +184,12 @@ public final class PowerSettingsActivity extends Activity {
             labels[i] = format(value, row);
             if (value == original && value != -1 && !preset(row, value))
                 labels[i] += Ui.tr(" (valor atual personalizado)", " (current custom value)");
-            if (value == draft[row]) selected = i;
+            if (value == draft.get(rows[row].kind)) selected = i;
         }
         picker = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle(rows[row].title.getText())
                 .setSingleChoiceItems(labels, selected, (dialog, which) -> {
-                    draft[row] = values.get(which);
+                    draft = draft.with(rows[row].kind, values.get(which));
                     render();
                     status(validation().isEmpty()
                             ? Ui.tr("Alterações ainda não aplicadas.", "Changes have not been applied yet.") : validation(),
@@ -215,25 +215,30 @@ public final class PowerSettingsActivity extends Activity {
     }
 
     private long original(int row) {
-        return row == 0 ? actual.saverMs : row == 1 ? actual.sleepMs : actual.attentiveMs;
+        return actual.timers().get(rows[row].kind);
     }
 
     private boolean changed() {
-        return actual != null && (draft[0] != actual.saverMs || draft[1] != actual.sleepMs
-                || (actual.attentiveSupported && draft[2] != actual.attentiveMs));
+        return actual != null && !draft.sameAs(actual.timers());
     }
 
     private String validation() {
-        boolean idleChanged = actual == null || draft[0] != actual.saverMs || draft[1] != actual.sleepMs;
-        return idleChanged && draft[0] >= 0 && draft[1] >= 0 && draft[1] <= draft[0]
-                ? Ui.tr("A suspensão deve ocorrer depois da tela de descanso. Escolha um intervalo maior ou desative um dos timers.",
-                "Sleep must be later than the screensaver. Choose a longer interval or disable one of the timers.") : "";
+        String error = draft == null ? "Read the current settings first." : draft.validationError(actual == null ? null : actual.timers());
+        switch (error) {
+            case "Read the current settings first.":
+                return Ui.tr("Leia os ajustes atuais primeiro.", error);
+            case "Choose a delay of at least one minute, or Never.":
+                return Ui.tr("Escolha um intervalo de pelo menos um minuto, ou Nunca.", error);
+            case "Sleep must start later than the screensaver.":
+                return Ui.tr("A suspensão deve ocorrer depois da tela de descanso.", error);
+            default: return error;
+        }
     }
 
     private void render() {
         for (TimerRow row : rows) {
             row.setEnabled(!busy && actual != null);
-            if (actual != null) row.value.setText(format(draft[row.index], row.index) + "  ›");
+            if (actual != null) row.value.setText(format(draft.get(row.kind), row.kind.ordinal()) + "  ›");
             row.updateStyle();
         }
         rows[2].setVisibility(actual != null && actual.attentiveSupported ? View.VISIBLE : View.GONE);
@@ -259,9 +264,7 @@ public final class PowerSettingsActivity extends Activity {
 
     private void accept(PowerSettings.Snapshot state) {
         actual = state;
-        draft[0] = state.saverMs;
-        draft[1] = state.sleepMs;
-        draft[2] = state.attentiveMs;
+        draft = state.timers();
     }
 
     private void load() {
@@ -303,7 +306,7 @@ public final class PowerSettingsActivity extends Activity {
         busy = true;
         final int token = ++generation;
         PowerSettings.Snapshot expected = actual;
-        long saver = draft[0], sleep = draft[1], attentive = draft[2];
+        long saver = draft.saverMs, sleep = draft.sleepMs, attentive = draft.attentiveMs;
         status(Ui.tr("Aplicando…", "Applying…"), false);
         render();
         Context app = getApplicationContext();

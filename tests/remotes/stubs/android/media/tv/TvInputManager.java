@@ -1,0 +1,1 @@
+package android.media.tv; import java.util.*; public class TvInputManager { public List<TvInputInfo> getTvInputList(){return Collections.singletonList(new TvInputInfo());} }

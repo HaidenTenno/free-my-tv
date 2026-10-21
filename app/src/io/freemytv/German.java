@@ -6,6 +6,12 @@ final class German {
 
     static String text(String english) {
         switch (english) {
+            case "Read the current settings first.": return "Lies zuerst die aktuellen Einstellungen.";
+            case "Choose a delay of at least one minute, or Never.": return "Wähle mindestens eine Minute oder Nie.";
+            case "Sleep must start later than the screensaver.": return "Der Ruhezustand muss später als der Bildschirmschoner starten.";
+            case "Status and notices": return "Status und Hinweise";
+            case "Read the full error in Status and notices.": return "Der vollständige Fehler steht unter Status und Hinweise.";
+            case "↑ ↓ to scroll · Back to settings": return "↑ ↓ zum Scrollen · Zurück zu den Einstellungen";
             case "Live TV": return "Live-TV";
             case "All Apps": return "Alle Apps";
             case "Settings": return "Einstellungen";

@@ -123,6 +123,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         @Override public void focus(int id) { a11yFocus(id); }
         @Override public void click(int id) { activate(); }
         @Override public boolean clickable(int id) { return (id - 1) / 1000 != WIDGETS; }
+        @Override public boolean longClickable(int id) {
+            return sheetOpen && (id - 1) / 1000 == GRID && canManageApp((id - 1) % 1000);
+        }
+        @Override public void longClick(int id) {
+            if (!longClickable(id)) return;
+            cancelHold();
+            showAppActions((id - 1) % 1000, -1);
+        }
     });
     private final RectF a11yRect = new RectF();
     private final Layer sky, heroLayer, status, platter, tiles, drawerLayer, sheetLayer, toastLayer;
@@ -2232,9 +2240,13 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     }
 
     private boolean canManageApp() {
-        if (!sheetOpen || gridIndex < 0 || gridIndex >= others.size()) return false;
-        HomeApps.Item item = others.get(gridIndex);
-        return item.kind == HomeApps.APP && item.pkg != null;
+        return sheetOpen && canManageApp(gridIndex);
+    }
+
+    private boolean canManageApp(int index) {
+        if (index < 0 || index >= others.size()) return false;
+        HomeApps.Item item = others.get(index);
+        return item.kind == HomeApps.APP && item.pkg != null && !item.pkg.equals(activity.getPackageName());
     }
 
     private void startHoldAction() {
@@ -2245,10 +2257,15 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         handler.removeCallbacks(holdStart);
         holdArmed = okDown = false;
         okHeld = true;
+        if (spoken.keyLongClick()) showAppActions(gridIndex, okDownTime);
+    }
+
+    private void showAppActions(int index, long openingDownTime) {
+        if (!sheetOpen || !canManageApp(index)) return;
         click.open();
         if (appActionsDialog == null) appActionsDialog = new AppActionsDialog(activity, this::showToast,
                 () -> returnToApps = true, () -> reload(true));
-        appActionsDialog.show(others.get(gridIndex), okDownTime);
+        appActionsDialog.show(others.get(index), openingDownTime);
     }
 
     private boolean canReorder() {

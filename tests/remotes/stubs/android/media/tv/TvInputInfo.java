@@ -1,0 +1,1 @@
+package android.media.tv; import android.content.pm.ServiceInfo; public class TvInputInfo { public static int TYPE_TUNER=0; public int getType(){return TYPE_TUNER;} public boolean isPassthroughInput(){return false;} public String getId(){return "com.tcl.tvinput/.TunerInputService/HW2";} public ServiceInfo getServiceInfo(){return new ServiceInfo();} }

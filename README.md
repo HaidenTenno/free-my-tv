@@ -29,6 +29,7 @@ This fork adds Android TV customizations to [simbasjungles/free-my-tv](https://g
 
 - Remote-button profiles for TCL G08 and Haier irvine TVs, with the labels and key codes used by their remotes.
 - **Screensaver and sleep** settings that read the TV's current values, keep edits as drafts until **Apply**, and offer separate screensaver, idle sleep, and sleep-even-during-playback timers. These are system timers, not timers that require the launcher to stay open. Both idle delays count from the last activity, not one after the other. Manufacturer-specific timers such as no-signal power-off remain in the TV's own settings.
+- A scrollable **Status and notices** screen in settings, so diagnostic messages remain accessible when the menu grows or an error is long.
 - A visible clock and background while screensaver photos load, including when cached recommendations have no usable image yet.
 - A **Close apps** shortcut that previews running apps before stopping them. Stopping a VPN also disconnects it; app data and accounts are retained.
 - An app-management menu in **All Apps**: hold OK to request uninstalling an app through Android's confirmation screen or open its app settings. System apps offer app settings only. The list includes favorites and refreshes after an uninstall.
@@ -41,7 +42,7 @@ Build this fork from source using the Android instructions below. Keep `freemytv
 
 ### Remote profile selection
 
-The profile is selected in [`RemoteProfile.java`](app/src/io/freemytv/RemoteProfile.java). A brand matches when **either** Android's `Build.MANUFACTURER` **or** `Build.BRAND` matches; the device code comes from `Build.DEVICE`. All comparisons ignore case.
+The buttons are defined in [`RemoteProfile.java`](app/src/io/freemytv/RemoteProfile.java), using the hardware detected by [`TvPlatform.java`](app/src/io/freemytv/TvPlatform.java). Native TV routing uses the hardware profile directly, independently of the button definitions. A brand matches when **either** Android's `Build.MANUFACTURER` **or** `Build.BRAND` matches; the device code comes from `Build.DEVICE`. All comparisons ignore case.
 
 | TV reported by Android | Buttons listed in Remote Buttons |
 | --- | --- |
@@ -57,6 +58,18 @@ The new mappings were measured on a TCL G08 with a BT_RC813A_B9 remote and a Hai
 The app-branded buttons in the new profiles default to **System action**, preserving the TV's own behavior until an app is assigned. The TV-icon button defaults to **Live TV**, which opens the same native antenna input as the home-screen shortcut. It can also be assigned to another installed app or restored to **System action**. Channel tuning remains in the TV's own interface; the launcher does not scan or change saved channels. Button labels, intercepted key codes and defaults now come from one profile definition; saved assignments are retained when editing the current profile. Remote remapping remains disabled on other unsupported TV brands.
 
 On the tested TCL G08, the native TV app can restore an unavailable TCL Channel internet stream instead of the antenna input. This fork reads the antenna channel list and opens the first visible, browsable terrestrial channel directly (digital preferred, analogue as a fallback). If none are visible to the launcher, or the list cannot be read, it opens TCL's scan **options**, leaving the Search button to the user. Free My TV mode grants the read-only TV listings permission through its existing authorized local ADB connection; providers can still hide channels from this permission. The empty-channel options screen has been verified on the TV; direct playback requires configured channels and has not yet been tested on these TVs. Haier continues to use its native antenna input and empty-channel screen.
+
+### Checking fork changes
+
+Run the local regression checks with a JDK (17+):
+
+```bash
+./tests/run.sh
+```
+
+The checks compile the production Java classes with small Android test doubles. They cover remote profiles and delayed launches, timer validation and rollback, and app-management safeguards. They do not connect to a TV, change its settings, or read your signing key or `config.properties`. `JAVA_HOME` is supported; compilation output is created in temporary directories and removed afterward.
+
+These JVM checks do not replace Android UI and firmware checks. Also run `./build.sh` before installing an update, and check the remote buttons, settings navigation and app-management menu on the target TV.
 
 ## What you get
 
@@ -202,7 +215,7 @@ Free My TV runs on Google TV and Android TV: TCL, Sony, Hisense, Philips, Xiaomi
 | Apps to turn off | `DEBLOAT` in [`HomeMode.java`](app/src/io/freemytv/HomeMode.java) |
 | Apps never to touch | `PROTECTED` in the same file |
 | Apps on the shelf | `SHELF` in [`HomeApps.java`](app/src/io/freemytv/HomeApps.java) |
-| Your brand's live TV app | `LIVE_TV_APPS` in the same file |
+| Your brand's live TV app and antenna route | [`LiveTv.java`](app/src/io/freemytv/LiveTv.java), with hardware detection in [`TvPlatform.java`](app/src/io/freemytv/TvPlatform.java) |
 
 ## Make it yours
 

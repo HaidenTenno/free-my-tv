@@ -1,14 +1,13 @@
 package io.freemytv;
 
-import android.os.Build;
-
 /** Button names and codes belong together: regional remotes from one maker can be entirely different. */
 final class RemoteProfile {
     private RemoteProfile() {}
 
-    static final boolean TCL = maker("TCL"), VESTEL = maker("Vestel");
-    static final boolean TCL_G08 = TCL && "G08".equalsIgnoreCase(Build.DEVICE);
-    static final boolean HAIER_IRVINE = maker("Haier") && "irvine".equalsIgnoreCase(Build.DEVICE);
+    // These choose the tested remote profiles; native-TV routing uses TvPlatform directly.
+    static final boolean VESTEL = TvPlatform.VESTEL;
+    static final boolean TCL_G08 = TvPlatform.TCL_G08;
+    static final boolean HAIER_IRVINE = TvPlatform.HAIER_IRVINE;
 
     static final class Button {
         final int code;
@@ -65,7 +64,7 @@ final class RemoteProfile {
             ? new Button[] {new Button(265, "Botão Netflix", "Netflix button", "com.netflix.ninja")}
             : TCL_STANDARD;
 
-    static boolean supported() { return TCL || VESTEL || HAIER_IRVINE; }
+    static boolean supported() { return TvPlatform.TCL || VESTEL || HAIER_IRVINE; }
 
     static Button find(int keyCode) {
         for (Button button : BUTTONS) if (button.matches(keyCode)) return button;
@@ -76,9 +75,5 @@ final class RemoteProfile {
         int[] codes = new int[BUTTONS.length];
         for (int i = 0; i < codes.length; i++) codes[i] = BUTTONS[i].code;
         return codes;
-    }
-
-    private static boolean maker(String name) {
-        return name.equalsIgnoreCase(Build.MANUFACTURER) || name.equalsIgnoreCase(Build.BRAND);
     }
 }

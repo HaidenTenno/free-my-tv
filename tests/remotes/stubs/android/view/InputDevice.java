@@ -1,0 +1,1 @@
+package android.view; public class InputDevice { public static int SOURCE_GAMEPAD=0x401,SOURCE_JOYSTICK=0x1000010; }

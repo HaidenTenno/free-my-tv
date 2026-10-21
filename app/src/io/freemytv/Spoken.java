@@ -37,6 +37,9 @@ final class Spoken extends AccessibilityNodeProvider {
         void click(int id);
         /** False for what is only there to be read (a widget): it takes the focus, so TalkBack gets to it, but OK does nothing. */
         default boolean clickable(int id) { return true; }
+        /** An optional secondary action, such as managing an app from All Apps. */
+        default boolean longClickable(int id) { return false; }
+        default void longClick(int id) {}
     }
 
     /** TalkBack's click and the remote's OK can both arrive for one press: only the first counts. */
@@ -52,7 +55,7 @@ final class Spoken extends AccessibilityNodeProvider {
     private int lastFocused = -1, accessibilityFocused = -1;
     private String lastText = "";
     private boolean following;
-    private long keyAt, talkBackAt;
+    private long keyAt, talkBackAt, longAt = -SAME_PRESS_MS;
 
     Spoken(View host, Source source) {
         this.host = host;
@@ -84,7 +87,15 @@ final class Spoken extends AccessibilityNodeProvider {
     /** The remote's OK: false if TalkBack already clicked for this press. */
     boolean keyClick() {
         keyAt = SystemClock.uptimeMillis();
-        return keyAt - talkBackAt > SAME_PRESS_MS;
+        return keyAt - talkBackAt > SAME_PRESS_MS && keyAt - longAt > SAME_PRESS_MS;
+    }
+
+    /** A physical hold and an accessibility long click may describe the same press. */
+    boolean keyLongClick() {
+        keyAt = SystemClock.uptimeMillis();
+        if (keyAt - talkBackAt <= SAME_PRESS_MS || keyAt - longAt <= SAME_PRESS_MS) return false;
+        longAt = keyAt;
+        return true;
     }
 
     @Override public AccessibilityNodeInfo createAccessibilityNodeInfo(int id) {
@@ -96,8 +107,8 @@ final class Spoken extends AccessibilityNodeProvider {
             for (int item : ids) if (source.bounds(item, bounds)) info.addChild(host, item);
             return info;
         }
+        if (!valid(id)) return null;
         String text = source.text(id);
-        if (text.isEmpty() || !source.bounds(id, bounds)) return null;
         boolean clickable = source.clickable(id), focused = id == source.focused();
         AccessibilityNodeInfo info = AccessibilityNodeInfo.obtain(host, id);
         info.setPackageName(host.getContext().getPackageName());
@@ -115,6 +126,9 @@ final class Spoken extends AccessibilityNodeProvider {
         info.setFocused(focused);
         info.setClickable(clickable);
         if (clickable) info.addAction(AccessibilityAction.ACTION_CLICK);
+        boolean longClickable = source.longClickable(id);
+        info.setLongClickable(longClickable);
+        if (longClickable) info.addAction(AccessibilityAction.ACTION_LONG_CLICK);
         if (!focused) info.addAction(AccessibilityAction.ACTION_FOCUS);
         info.setAccessibilityFocused(id == accessibilityFocused);
         info.addAction(id == accessibilityFocused ? AccessibilityAction.ACTION_CLEAR_ACCESSIBILITY_FOCUS
@@ -124,7 +138,10 @@ final class Spoken extends AccessibilityNodeProvider {
 
     @Override public boolean performAction(int id, int action, Bundle arguments) {
         if (id == HOST_VIEW_ID) return host.performAccessibilityAction(action, arguments);
+        // A grid can close or change after a service reads its nodes. Never activate stale or invented IDs.
+        if (action != AccessibilityNodeInfo.ACTION_CLEAR_ACCESSIBILITY_FOCUS && !valid(id)) return false;
         if (action == AccessibilityNodeInfo.ACTION_CLICK && !source.clickable(id)) return false;
+        if (action == AccessibilityNodeInfo.ACTION_LONG_CLICK && !source.longClickable(id)) return false;
         switch (action) {
             case AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS:
                 if (accessibilityFocused == id) return false;
@@ -142,14 +159,29 @@ final class Spoken extends AccessibilityNodeProvider {
                 return true;
             case AccessibilityNodeInfo.ACTION_CLICK:
                 talkBackAt = SystemClock.uptimeMillis();
-                if (talkBackAt - keyAt > SAME_PRESS_MS) {
+                if (talkBackAt - keyAt > SAME_PRESS_MS && talkBackAt - longAt > SAME_PRESS_MS) {
                     follow(id);
                     source.click(id);
+                }
+                return true;
+            case AccessibilityNodeInfo.ACTION_LONG_CLICK:
+                talkBackAt = SystemClock.uptimeMillis();
+                if (talkBackAt - keyAt > SAME_PRESS_MS && talkBackAt - longAt > SAME_PRESS_MS) {
+                    longAt = talkBackAt;
+                    follow(id);
+                    source.longClick(id);
                 }
                 return true;
             default:
                 return false;
         }
+    }
+
+    private boolean valid(int id) {
+        if (id <= 0) return false;
+        ids.clear();
+        source.items(ids);
+        return ids.contains(id) && !source.text(id).isEmpty() && source.bounds(id, bounds);
     }
 
     /** Moves the view's focus to where TalkBack is, without telling TalkBack back (it's already there). */

@@ -100,7 +100,6 @@ final class AppStopper {
             Adb adb = connect();
             int user = currentUser(adb);
             if (user != preparedUser) throw new IOException("The active TV user changed");
-            Map<String, App> eligible = eligible(adb, user);
             Map<String, App> selected = new LinkedHashMap<>();
             if (confirmed != null) for (App app : confirmed) {
                 if (app == null || !validPackage(app.pkg) || !prepared.containsKey(app.pkg))
@@ -111,14 +110,14 @@ final class AppStopper {
             boolean broken = false;
             for (App app : selected.values()) {
                 check();
-                if (broken || !eligible.containsKey(app.pkg)) {
+                if (broken) {
                     failed.add(app);
                     continue;
                 }
                 try {
                     // A user switch or package replacement must not broaden the confirmed operation.
                     if (currentUser(adb) != user) throw new IOException("The active TV user changed");
-                    if (!eligible(adb, user).containsKey(app.pkg)) {
+                    if (!eligibleNow(adb, user, app.pkg)) {
                         failed.add(app);
                         continue;
                     }
@@ -151,13 +150,28 @@ final class AppStopper {
         if (adb != null) adb.close();
     }
 
-    private Map<String, App> eligible(Adb adb, int user) throws IOException {
+    /** UID membership must be fresh: force-stop affects every package sharing the target's UID. */
+    private static final class Uids {
+        final Map<String, Integer> packages;
+        final Map<Integer, Integer> counts = new HashMap<>();
+
+        Uids(Map<String, Integer> packages) {
+            this.packages = packages;
+            for (int uid : packages.values()) counts.put(uid, counts.getOrDefault(uid, 0) + 1);
+        }
+    }
+
+    private Uids readUids(Adb adb, int user) throws IOException {
         Map<String, Integer> uids = packageUids(shell(adb, "pm list packages -U --user " + user));
         Integer ownUid = uids.get(context.getPackageName());
         if (ownUid == null || ownUid != context.getApplicationInfo().uid)
             throw new IOException("Cannot verify packages for the active TV user");
-        Map<Integer, Integer> uidCounts = new HashMap<>();
-        for (int uid : uids.values()) uidCounts.put(uid, uidCounts.getOrDefault(uid, 0) + 1);
+        return new Uids(uids);
+    }
+
+    /** One catalogue for the preview; avoid loading every app's services again for every subsequent stop. */
+    private Map<String, App> eligible(Adb adb, int user) throws IOException {
+        Uids uids = readUids(adb, user);
         PackageManager pm = context.getPackageManager();
         Set<String> homes = new HashSet<>();
         for (ResolveInfo ri : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
@@ -165,41 +179,62 @@ final class AppStopper {
             if (ri.activityInfo != null) homes.add(ri.activityInfo.packageName);
         }
         Map<String, App> result = new HashMap<>();
+        Set<String> seen = new HashSet<>();
         for (ResolveInfo ri : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN)
                 .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER), 0)) {
             check();
             if (ri.activityInfo == null) continue;
             String pkg = ri.activityInfo.packageName;
-            if (!validPackage(pkg) || context.getPackageName().equals(pkg) || homes.contains(pkg)
-                    || HomeMode.isProtectedPackage(pkg)) continue;
-            try {
-                PackageInfo pi = pm.getPackageInfo(pkg, PackageManager.GET_SERVICES | PackageManager.MATCH_DISABLED_COMPONENTS);
-                ApplicationInfo ai = pi.applicationInfo;
-                Integer uid = uids.get(pkg);
-                if (ai == null || !ai.enabled || uid == null || uid != ai.uid || uid / 100000 != user
-                        || uid % 100000 < 10000 || uidCounts.get(uid) != 1
-                        || (ai.flags & ApplicationInfo.FLAG_PERSISTENT) != 0) continue;
-                if ((ai.flags & (ApplicationInfo.FLAG_SYSTEM | ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
-                        && oemSystemPackage(pkg)) continue;
-                boolean protectedService = false;
-                boolean vpn = "com.vanyavpn.android.client".equals(pkg);
-                if (pi.services != null) for (ServiceInfo service : pi.services) {
-                    String permission = service.permission;
-                    if ("android.permission.BIND_VPN_SERVICE".equals(permission)) vpn = true;
-                    if ("android.permission.BIND_TV_INPUT".equals(permission)
-                            || "android.permission.BIND_INPUT_METHOD".equals(permission)
-                            || "android.permission.BIND_ACCESSIBILITY_SERVICE".equals(permission)
-                            || "android.permission.BIND_DREAM_SERVICE".equals(permission)
-                            || "android.permission.BIND_WALLPAPER".equals(permission)) protectedService = true;
-                }
-                if (protectedService) continue;
-                CharSequence label = ai.loadLabel(pm);
-                result.put(pkg, new App(pkg, label == null ? pkg : label.toString(), vpn));
-            } catch (PackageManager.NameNotFoundException ignored) {
-                // Uninstalled while collecting the preview.
-            }
+            if (homes.contains(pkg) || !seen.add(pkg)) continue;
+            App app = inspect(pm, pkg, uids, user);
+            if (app != null) result.put(pkg, app);
         }
         return result;
+    }
+
+    /** Recheck only this confirmed target, including newly shared UIDs, homes, services and disabled activities. */
+    private boolean eligibleNow(Adb adb, int user, String pkg) throws IOException {
+        Uids uids = readUids(adb, user);
+        PackageManager pm = context.getPackageManager();
+        if (!hasActivity(pm, pkg, Intent.CATEGORY_LEANBACK_LAUNCHER, 0)
+                || hasActivity(pm, pkg, Intent.CATEGORY_HOME, PackageManager.MATCH_DISABLED_COMPONENTS)) return false;
+        return inspect(pm, pkg, uids, user) != null;
+    }
+
+    private static boolean hasActivity(PackageManager pm, String pkg, String category, int flags) {
+        for (ResolveInfo ri : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(category).setPackage(pkg), flags)) {
+            if (ri.activityInfo != null && pkg.equals(ri.activityInfo.packageName)) return true;
+        }
+        return false;
+    }
+
+    private App inspect(PackageManager pm, String pkg, Uids uids, int user) throws IOException {
+        check();
+        if (!validPackage(pkg) || context.getPackageName().equals(pkg) || HomeMode.isProtectedPackage(pkg)) return null;
+        try {
+            PackageInfo pi = pm.getPackageInfo(pkg, PackageManager.GET_SERVICES | PackageManager.MATCH_DISABLED_COMPONENTS);
+            ApplicationInfo ai = pi.applicationInfo;
+            Integer uid = uids.packages.get(pkg);
+            if (ai == null || !ai.enabled || uid == null || uid != ai.uid || uid / 100000 != user
+                    || uid % 100000 < 10000 || uids.counts.get(uid) != 1
+                    || (ai.flags & ApplicationInfo.FLAG_PERSISTENT) != 0) return null;
+            if ((ai.flags & (ApplicationInfo.FLAG_SYSTEM | ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
+                    && oemSystemPackage(pkg)) return null;
+            boolean vpn = "com.vanyavpn.android.client".equals(pkg);
+            if (pi.services != null) for (ServiceInfo service : pi.services) {
+                String permission = service.permission;
+                if ("android.permission.BIND_VPN_SERVICE".equals(permission)) vpn = true;
+                if ("android.permission.BIND_TV_INPUT".equals(permission)
+                        || "android.permission.BIND_INPUT_METHOD".equals(permission)
+                        || "android.permission.BIND_ACCESSIBILITY_SERVICE".equals(permission)
+                        || "android.permission.BIND_DREAM_SERVICE".equals(permission)
+                        || "android.permission.BIND_WALLPAPER".equals(permission)) return null;
+            }
+            CharSequence label = ai.loadLabel(pm);
+            return new App(pkg, label == null ? pkg : label.toString(), vpn);
+        } catch (PackageManager.NameNotFoundException ignored) {
+            return null; // Uninstalled while collecting or rechecking the preview.
+        }
     }
 
     private static boolean oemSystemPackage(String pkg) {

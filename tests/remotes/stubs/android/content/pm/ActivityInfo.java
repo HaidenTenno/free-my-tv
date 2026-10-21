@@ -1,0 +1,1 @@
+package android.content.pm; public class ActivityInfo { public boolean exported=true,enabled=true; public String packageName="com.tcl.tv",name="TVActivity"; }

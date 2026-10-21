@@ -1,0 +1,1 @@
+package android.content; public class IntentFilter { public int countDataTypes(){return 0;} public String getDataType(int n){return null;} }

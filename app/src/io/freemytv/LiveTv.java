@@ -33,7 +33,7 @@ final class LiveTv {
                     ResolveInfo match = pm.resolveActivity(new Intent(channels).setPackage(pkg),
                             PackageManager.MATCH_DEFAULT_ONLY);
                     if (launchable(match)) {
-                        if (RemoteProfile.TCL_G08 && "com.tcl.tv".equals(pkg))
+                        if (TvPlatform.TCL_G08 && "com.tcl.tv".equals(pkg))
                             return tclIntent(c, tuner, match);
                         return explicit(channels, match);
                     }

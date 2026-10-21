@@ -26,6 +26,8 @@ final class PowerSettings {
         private final int user;
         private final Map<String, String> raw;
 
+        PowerTimers timers() { return new PowerTimers(saverMs, sleepMs, attentiveMs); }
+
         private Snapshot(int user, Map<String, String> raw, Map<String, String> effective) throws IOException {
             this.user = user;
             this.raw = raw;
@@ -54,7 +56,8 @@ final class PowerSettings {
     }
 
     static Snapshot apply(Context c, Snapshot expected, long saverMs, long sleepMs, long attentiveMs) throws IOException {
-        validate(expected, saverMs, sleepMs, attentiveMs);
+        String validation = new PowerTimers(saverMs, sleepMs, attentiveMs).validationError(expected == null ? null : expected.timers());
+        if (!validation.isEmpty()) throw new IOException(validation);
         synchronized (LOCK) {
             try (Adb adb = Adb.connect(c.getApplicationContext(), 10_000, null)) {
                 long limit = deadline();
@@ -102,26 +105,6 @@ final class PowerSettings {
                 }
             }
         }
-    }
-
-    static void validate(long saverMs, long sleepMs, long attentiveMs) throws IOException {
-        for (long value : new long[] {saverMs, sleepMs, attentiveMs}) {
-            if (value != -1 && (value < 60_000 || value > 7L * 24 * 60 * 60 * 1000))
-                throw new IOException("Choose a delay of at least one minute, or Never.");
-        }
-        if (saverMs > 0 && sleepMs > 0 && sleepMs <= saverMs)
-            throw new IOException("Sleep must start later than the screensaver.");
-    }
-
-    static void validate(Snapshot before, long saverMs, long sleepMs, long attentiveMs) throws IOException {
-        if (before == null) throw new IOException("Read the current settings first.");
-        // Preserve firmware-specific values unless the user actually changes that timer.
-        if (saverMs != before.saverMs) validate(saverMs, -1, -1);
-        if (sleepMs != before.sleepMs) validate(-1, sleepMs, -1);
-        if (attentiveMs != before.attentiveMs) validate(-1, -1, attentiveMs);
-        if ((saverMs != before.saverMs || sleepMs != before.sleepMs)
-                && saverMs > 0 && sleepMs > 0 && sleepMs <= saverMs)
-            throw new IOException("Sleep must start later than the screensaver.");
     }
 
     private static Snapshot read(Adb adb, long limit) throws IOException {

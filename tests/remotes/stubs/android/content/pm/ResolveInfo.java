@@ -1,0 +1,1 @@
+package android.content.pm; import android.content.IntentFilter; public class ResolveInfo { public ActivityInfo activityInfo=new ActivityInfo(); public IntentFilter filter=new IntentFilter(); }

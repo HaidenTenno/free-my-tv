@@ -122,7 +122,9 @@ Then, in the code:
 - `HomeMode.DEBLOAT`: add the brand's promo, demo, store-mode and telemetry apps, one comment per line. Only those.
 - `HomeMode.PROTECTED`: add the brand's system pieces: picture, sound, inputs and HDMI-CEC, the tuner and live TV,
   remote and Bluetooth pairing, setup, updates, system UI. When in doubt, protect it.
-- `HomeApps.SHELF`, `LIVE_TV_APPS` and `HIDDEN`: the shelf apps, the brand's live TV app, apps to hide from All Apps.
+- `HomeApps.SHELF` and `HIDDEN`: the shelf apps and apps to hide from All Apps.
+- `TvPlatform` and `LiveTv`: hardware detection and the native antenna route shared by the home shortcut and remote.
+- `RemoteProfile`: the tested physical button names, key codes, aliases and defaults for each remote.
 - Build, install, have them switch on the TV, read `adb logcat -s FreeMyTV`, then have them switch back to
   *Original* once and confirm everything returned.
 
@@ -155,13 +157,15 @@ HDMI (Chromecast with Google TV, Google TV Streamer, onn 4K, NVIDIA Shield). Set
   isn't obvious.
 - Settings come from `config.properties` through the generated `out/gen/io/freemytv/Config.java` (never edit that).
   What the person changes on the TV (`Prefs`: Home Settings, Shelf, Remote Buttons) wins over those first values.
-- The remote's app buttons (`RemoteKeys`, `RemoteKeyService`) use each brand's key codes: they run only on TCL and
-  Vestel TVs, the service is on only in Free My TV mode, and *Original* takes it out of the enabled accessibility
+- The remote's app buttons (`RemoteKeys`, `RemoteKeyService`) use the key codes in `RemoteProfile`: TCL, Vestel and
+  the tested Haier irvine platform are supported. The service is on only in Free My TV mode, and *Original* takes it out of the enabled accessibility
   services. The system waits for the service on every key, so it lives alone in the `:keys` process: what it reads is
   in `remote-keys.txt` (`Prefs.keyApp`), never in SharedPreferences, and `onKeyEvent` does no heavy work.
   Vestel (F&U and other store brands; MediaTek, Android TV 14 tested) maps its Netflix button to `KEYCODE_STEM_1`, a
   global key (`dumpsys window policy` lists them) that the key filter sees first; its YouTube, Prime Video and Google
   Play buttons stay with the system. The stock lists needed no Vestel entries.
+- Fork regression checks live in `tests/`; run `./tests/run.sh` for changes to remote keys, timers or app management.
+  They compile production classes with test doubles and do not connect to a TV. Keep real firmware/UI checks separate.
 - After any change, `./build.sh` must end with `Built FreeMyTV.apk`.
 - LG and Samsung (`web/`): plain ES5 JavaScript and CSS without variables, grid or backdrop-filter, since older TVs
   (webOS 3 and 4, Tizen 3) run a Chromium from 2015 to 2017; only transform and opacity animate. `web/tv.js` is the

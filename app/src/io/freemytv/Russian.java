@@ -13,6 +13,9 @@ final class Russian {
 
     static String text(String english) {
         switch (english) {
+            case "Status and notices": return "Состояние и уведомления";
+            case "Read the full error in Status and notices.": return "Полный текст ошибки — в «Состояние и уведомления».";
+            case "↑ ↓ to scroll · Back to settings": return "↑ ↓ — прокрутка · Назад — к настройкам";
             case "Live TV": return "Телеканалы";
             case "All Apps": return "Приложения";
             case "Hold OK to manage apps": return "Удерживайте OK для управления приложением";

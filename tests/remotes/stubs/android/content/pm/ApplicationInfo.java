@@ -1,0 +1,1 @@
+package android.content.pm; public class ApplicationInfo { public static int FLAG_SYSTEM=1; public int flags=FLAG_SYSTEM; }

@@ -13,6 +13,7 @@ final class German {
             case "Read the full error in Status and notices.": return "Der vollständige Fehler steht unter Status und Hinweise.";
             case "↑ ↓ to scroll · Back to settings": return "↑ ↓ zum Scrollen · Zurück zu den Einstellungen";
             case "Live TV": return "Live-TV";
+            case "Show Live TV": return "Live-TV anzeigen";
             case "All Apps": return "Alle Apps";
             case "Settings": return "Einstellungen";
             case "Home Settings": return "Start-Einstellungen";

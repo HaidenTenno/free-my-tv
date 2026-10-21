@@ -89,7 +89,11 @@ final class Prefs {
         version++;
     }
 
-    // MARK: - Widgets and coins
+    // MARK: - Home shortcuts, widgets and coins
+
+    /** Controls home-screen shortcuts only; remote-button assignments remain independent. */
+    static boolean liveTv() { return sp().getBoolean("show_live_tv", true); }
+    static void setLiveTv(boolean on) { put("show_live_tv", on); }
 
     static boolean weather() { return sp().getBoolean("weather", true); }
     static void setWeather(boolean on) { put("weather", on); }

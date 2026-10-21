@@ -28,6 +28,7 @@ Open source. Built with Claude Code. One button to undo.
 This fork adds Android TV customizations to [simbasjungles/free-my-tv](https://github.com/simbasjungles/free-my-tv):
 
 - Remote-button profiles for TCL G08 and Haier irvine TVs, with the labels and key codes used by their remotes.
+- **Show Live TV** in **Home Settings** hides or restores both the top Live TV button and its entry beside the HDMI inputs. It is on by default and does not change the TV button's separate assignment in **Remote Buttons**.
 - **Screensaver and sleep** settings that read the TV's current values, keep edits as drafts until **Apply**, and offer separate screensaver, idle sleep, and sleep-even-during-playback timers. These are system timers, not timers that require the launcher to stay open. Both idle delays count from the last activity, not one after the other. Manufacturer-specific timers such as no-signal power-off remain in the TV's own settings.
 - A scrollable **Status and notices** screen in settings, so diagnostic messages remain accessible when the menu grows or an error is long.
 - A visible clock and background while screensaver photos load, including when cached recommendations have no usable image yet.

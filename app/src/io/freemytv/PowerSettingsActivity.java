@@ -1,16 +1,20 @@
 package io.freemytv;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.view.Window;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -35,7 +39,7 @@ public final class PowerSettingsActivity extends Activity {
     private PowerSettings.Snapshot actual;
     private Button apply, refresh;
     private TextView message;
-    private AlertDialog picker;
+    private Dialog picker;
     private boolean busy, alive = true;
     private int generation;
 
@@ -186,18 +190,72 @@ public final class PowerSettingsActivity extends Activity {
                 labels[i] += Ui.tr(" (valor atual personalizado)", " (current custom value)");
             if (value == draft.get(rows[row].kind)) selected = i;
         }
-        picker = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle(rows[row].title.getText())
-                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
-                    draft = draft.with(rows[row].kind, values.get(which));
-                    render();
-                    status(validation().isEmpty()
-                            ? Ui.tr("Alterações ainda não aplicadas.", "Changes have not been applied yet.") : validation(),
-                            !validation().isEmpty());
-                    dialog.dismiss();
-                }).setNegativeButton(Ui.tr("Cancelar", "Cancel"), null).create();
-        picker.setOnDismissListener(dialog -> picker = null);
-        picker.show();
+        showPicker(row, values, labels, selected);
+    }
+
+    private void showPicker(int row, List<Long> values, String[] labels, int selected) {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(24), dp(20), dp(24), dp(20));
+        TextView title = text(rows[row].title.getText().toString(), 22, Ui.displaySemibold, INK);
+        title.setPadding(0, 0, 0, dp(12));
+        title.setAccessibilityHeading(true);
+        content.addView(title);
+
+        // Some TV alert themes clip the button panel when the list fills the window.
+        // Only the choices scroll; the title and Cancel keep their measured height.
+        ScrollView scroll = new ScrollView(this);
+        RadioGroup choices = new RadioGroup(this);
+        choices.setOrientation(LinearLayout.VERTICAL);
+        for (int i = 0; i < labels.length; i++) {
+            final int which = i;
+            RadioButton choice = new RadioButton(this);
+            choice.setId(View.generateViewId());
+            choice.setText(labels[i]);
+            choice.setTextSize(18);
+            choice.setTypeface(Ui.regular);
+            choice.setMinHeight(dp(48));
+            choice.setPadding(dp(12), dp(8), dp(12), dp(8));
+            choice.setTextColor(INK);
+            choice.setButtonTintList(ColorStateList.valueOf(INK));
+            choice.setOnFocusChangeListener((v, focused) -> {
+                choice.setBackground(shape(focused ? INK : PANEL));
+                choice.setTextColor(focused ? BACKGROUND : INK);
+                choice.setButtonTintList(ColorStateList.valueOf(focused ? BACKGROUND : INK));
+            });
+            choice.setOnClickListener(v -> {
+                draft = draft.with(rows[row].kind, values.get(which));
+                render();
+                String error = validation();
+                status(error.isEmpty() ? Ui.tr("Alterações ainda não aplicadas.",
+                        "Changes have not been applied yet.") : error, !error.isEmpty());
+                dialog.dismiss();
+            });
+            choices.addView(choice, new RadioGroup.LayoutParams(-1, -2));
+            if (i == selected) choice.setChecked(true);
+        }
+        scroll.addView(choices, new ScrollView.LayoutParams(-1, -2));
+        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        Button cancel = button(Ui.tr("Cancelar", "Cancel"));
+        cancel.setMinHeight(dp(48));
+        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(-1, -2);
+        cancelParams.topMargin = dp(12);
+        content.addView(cancel, cancelParams);
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        choices.getChildAt(labels.length - 1).setNextFocusDownId(cancel.getId());
+        cancel.setNextFocusUpId(choices.getChildAt(labels.length - 1).getId());
+        dialog.setContentView(content);
+        dialog.setOnDismissListener(d -> picker = null);
+        picker = dialog;
+        dialog.show();
+        Window window = dialog.getWindow();
+        window.setBackgroundDrawable(shape(PANEL));
+        View screen = getWindow().getDecorView();
+        window.setLayout(Math.min(dp(560), screen.getWidth() - dp(48)),
+                Math.min(dp(144 + 48 * labels.length), screen.getHeight() - dp(48)));
+        choices.getChildAt(selected).requestFocus();
     }
 
     private boolean preset(int row, long value) {

@@ -42,8 +42,26 @@ final class HomeData {
         return Prefs.latitude() + "," + Prefs.longitude();
     }
 
-    private static String weatherUrl() {
-        return "https://api.open-meteo.com/v1/forecast?latitude=" + Prefs.latitude() + "&longitude=" + Prefs.longitude() + WEATHER_QUERY;
+    private static String weatherUrl(String host) {
+        return "https://" + host + "/v1/forecast?latitude=" + Prefs.latitude() + "&longitude=" + Prefs.longitude() + WEATHER_QUERY;
+    }
+
+    private static String fetchWeather() throws Exception {
+        try {
+            return get(weatherUrl("api.open-meteo.com"));
+        } catch (IOException primaryFailure) {
+            // The same provider's compatible API is hosted separately. Some networks cannot reach the main host.
+            String body = get(weatherUrl("historical-forecast-api.open-meteo.com"));
+            JSONObject forecast = new JSONObject(body);
+            TimeZone zone = TimeZone.getTimeZone(forecast.optString("timezone", "UTC"));
+            long observedAt = localTime(forecast.getJSONObject("current").getString("time"), zone);
+            // This endpoint also serves historical data: never display an old forecast as current weather.
+            if (Math.abs(System.currentTimeMillis() - observedAt) > 2 * 60 * 60_000L) {
+                throw new IOException("alternate weather endpoint returned stale data");
+            }
+            AppLog.w("weather: using alternate Open-Meteo endpoint");
+            return body;
+        }
     }
     private static final long PRICES_EVERY = 5 * 60_000L, WEATHER_EVERY = 30 * 60_000L;
     interface Listener { void onData(); }
@@ -165,7 +183,7 @@ final class HomeData {
             fetchingWeather = true;
             io.execute(() -> {
                 try {
-                    String body = get(weatherUrl());
+                    String body = fetchWeather();
                     weather = parseWeather(body);
                     weatherAt = System.currentTimeMillis();
                     cache.edit().putString("weather", body).putLong("weatherAt", weatherAt).putString("weatherPlace", weatherPlace()).apply();

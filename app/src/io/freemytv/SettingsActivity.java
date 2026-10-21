@@ -670,9 +670,12 @@ public class SettingsActivity extends Activity {
         }
 
         private String[] keyLabels() {
-            if (RemoteKeys.VESTEL) return new String[] {Ui.tr("Botão Netflix", "Netflix button")};
-            return new String[] {Ui.tr("Botão Netflix", "Netflix button"), Ui.tr("Botão YouTube", "YouTube button"),
-                    Ui.tr("Botão Prime Video", "Prime Video button"), Ui.tr("Botão TCL Channel", "TCL Channel button")};
+            String[] labels = new String[RemoteProfile.BUTTONS.length];
+            for (int i = 0; i < labels.length; i++) {
+                RemoteProfile.Button button = RemoteProfile.BUTTONS[i];
+                labels[i] = Ui.tr(button.portuguese, button.english);
+            }
+            return labels;
         }
 
         private String[] keyValues() {
@@ -684,7 +687,7 @@ public class SettingsActivity extends Activity {
             return v;
         }
 
-        /** Installed TV apps, by name, after "Nothing": what a remote button can open. */
+        /** Installed TV apps, by name, after "System action": what a remote button can open. */
         private void loadApps() {
             PackageManager pm = getContext().getPackageManager();
             List<String[]> found = new ArrayList<>();
@@ -699,7 +702,7 @@ public class SettingsActivity extends Activity {
             appPkgs.clear();
             appLabels.clear();
             appPkgs.add("");
-            appLabels.add(Ui.tr("Nada", "Nothing"));
+            appLabels.add(Ui.tr("Ação original", "System action"));
             for (String[] f : found) {
                 appPkgs.add(f[0]);
                 appLabels.add(f[1]);
@@ -924,7 +927,9 @@ public class SettingsActivity extends Activity {
             String[] labels = keys ? keyLabels() : settingLabels();
             String[] values = keys ? keyValues() : settingValues();
             Paint heading = Ui.text(Ui.displaySemibold, 34 * k, 0xFFFFFFFF);
-            c.drawText(keys ? Ui.tr("Botões do Controle", "Remote Buttons") : Ui.tr("Ajustes do Início", "Home Settings"),
+            String remoteTitle = Ui.tr("Botões do Controle", "Remote Buttons")
+                    + (RemoteProfile.TCL_G08 ? " · TCL" : RemoteProfile.HAIER_IRVINE ? " · Haier" : "");
+            c.drawText(keys ? remoteTitle : Ui.tr("Ajustes do Início", "Home Settings"),
                     LIST_X * k + 30 * k, (LIST_TOP - 24) * k, heading);
             for (int i = 0; i < labels.length; i++) {
                 float y = (LIST_TOP + 20 + i * (LIST_ROW_H + LIST_ROW_GAP)) * k;
@@ -940,9 +945,13 @@ public class SettingsActivity extends Activity {
             }
             Paint hint = Ui.text(Ui.regular, 23 * k, 0x8CFFFFFF);
             float hy = (LIST_TOP + 20 + labels.length * (LIST_ROW_H + LIST_ROW_GAP) + 36) * k;
-            c.drawText(Ui.tr("OK ou as setas mudam o valor.", "OK or the arrows change the value."), LIST_X * k + 30 * k, hy, hint);
+            c.drawText(keys ? Ui.tr("OK escolhe o aplicativo.", "Press OK to choose an app.")
+                    : Ui.tr("OK ou as setas mudam o valor.", "OK or the arrows change the value."), LIST_X * k + 30 * k, hy, hint);
             if (keys) {
-                c.drawText(RemoteKeys.VESTEL ? Ui.tr("YouTube, Prime Video e Google Play: a própria TV controla esses botões.",
+                c.drawText(RemoteProfile.TCL_G08 || RemoteProfile.HAIER_IRVINE
+                        ? Ui.tr("Ação original mantém o comportamento do botão na TV.",
+                        "System action keeps the TV's original button behavior.")
+                        : RemoteProfile.VESTEL ? Ui.tr("YouTube, Prime Video e Google Play: a própria TV controla esses botões.",
                         "YouTube, Prime Video and Google Play: the TV itself controls those buttons.")
                         : RemoteKeys.supported() ? Ui.tr("Disney e Globoplay: a própria TV controla esses botões.",
                         "Disney and Globoplay: the TV itself controls those buttons.")

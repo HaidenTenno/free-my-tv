@@ -15,6 +15,20 @@ Open source. Built with Claude Code. One button to undo.
 
 </div>
 
+## About this fork
+
+This fork adds Android TV customizations to [simbasjungles/free-my-tv](https://github.com/simbasjungles/free-my-tv):
+
+- Remote-button profiles for TCL G08 and Haier irvine TVs, with the labels and key codes used by their remotes.
+- A **Close apps** shortcut that previews running apps before stopping them. Stopping a VPN also disconnects it; app data and accounts are retained.
+- An app-management menu in **All Apps**: hold OK to request uninstalling an app through Android's confirmation screen or open its app settings. System apps offer app settings only. The list includes favorites and refreshes after an uninstall.
+- A fallback weather source when the primary Open-Meteo endpoint is unavailable, with a freshness check on the fallback data.
+- Additional translations and remote-setting migration for the new profiles.
+
+The app-management flow has been checked on TCL Android 12 and Haier Android 14, including short/long OK presses, cancellation, uninstalling a disposable test app, and refreshing the app list. Holding OK on a favorite still starts reordering.
+
+Build this fork from source using the Android instructions below. Keep `freemytv.keystore` and `config.properties` backed up locally: the same signing key is required to update an existing installation. These files, generated APKs, and diagnostic logs are not part of the source repository.
+
 ## What you get
 
 - **No ads.** No sponsored rows, banners or autoplaying promos. Not one.
@@ -25,7 +39,7 @@ Open source. Built with Claude Code. One button to undo.
 - **A screensaver to match.** Full-screen photos of the picks with a big glass clock.
 - **Fast.** 60 fps, every frame in 16.6 ms, on the TV's own chip. The home screen uses 96 MB of memory instead of 242 MB (−60%).<br><sub>Measured on a 98″ TCL Google TV running Android 14.</sub>
 - **Set up on the TV.** Language, your city, temperature, theme, the weather and prices cards, which coins, and the apps on the shelf, in Free My TV's own settings.
-- **Safe.** No root. Nothing is uninstalled. One button brings back the factory home screen.
+- **No root.** Switching the home screen does not uninstall apps, and one button brings back the factory home screen. This fork also offers optional app removal with a separate Android confirmation.
 
 ## Install
 
@@ -36,7 +50,7 @@ About ten minutes. You need a Google TV or Android TV (Android 9 or newer) and a
 1. **On the TV**, turn on developer mode: Settings → System → About → press *Android TV OS build* 7 times. Then Settings → System → Developer options → turn on **USB debugging**. Write down the TV's IP address (Settings → Network & Internet).
 2. **On your computer**, get the code:
    ```bash
-   git clone https://github.com/simbasjungles/free-my-tv && cd free-my-tv
+   git clone https://github.com/HaidenTenno/free-my-tv && cd free-my-tv
    ```
 3. **Open [Claude Code](https://claude.com/claude-code) in that folder** and say:
    > Install Free My TV on my TV at 192.168.1.50. I live in Lisbon.

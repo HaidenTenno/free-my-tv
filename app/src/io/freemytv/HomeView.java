@@ -46,7 +46,7 @@ import java.util.function.Consumer;
 /**
  * The home screen, styled after the Apple TV app with the macOS 27 glass:
  *  - at the top left, the "For You" title and the tabs (Explore, Movies, Shows); at the top right, icon-only glass
- *    buttons (Live TV, HDMI Inputs, Settings), with the focused one's name below it, and the small crypto quotes
+ *    buttons (Live TV, HDMI Inputs, Settings, Close apps), with the focused one's name below it, and the small crypto quotes
  *    (logo + price) at the right end of the tab row;
  *  - three cards with the titles recommended for right now in the selected tab (Recs, from TMDB); the background is
  *    the first card's photo, heavily blurred and almost white (Backdrop); without one, a light gradient;
@@ -104,6 +104,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private static final int Z_TOP = 4, Z_CARDS = 5;
 
     private final Activity activity;
+    private AppStopDialog appStopDialog;
+    private AppActionsDialog appActionsDialog;
+    private boolean returnToApps;
+    private long okDownTime;
     private final Scene scene = new Scene();
     private final HomeData data;
     private final Recs recs;
@@ -134,12 +138,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private boolean nightPair;          // the glass holds both photos (day and night), blended by `night`
     private Shader nightGradient;
 
-    // At the top: tabs (0 to 2) and icon-only buttons (3 to 5); the three cards
+    // At the top: three tabs and four icon-only buttons; the three cards
     private int tab, topIndex, cardIndex;
     private int widgetIndex;    // with TalkBack on, the drawer's weather (0) or quotes (1) card can take the focus
     private List<Recs.Pick> cards = new ArrayList<>();
-    private final Spring[] topFocus = new Spring[6];
-    private final RectF[] topRects = new RectF[6];
+    private final Spring[] topFocus = new Spring[7];
+    private final RectF[] topRects = new RectF[7];
     private final Spring[] cardFocus = new Spring[3];
     private final RectF[] cardRects = new RectF[3];
     private final List<HomeApps.Item> lightButtons = new ArrayList<>();
@@ -178,7 +182,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private Spring[] tileSlide = new Spring[0];
     private final Spring moveLift = new Spring(0.3f, 0.72f, 0);
     private List<HomeApps.Item> reorderOrigin;
-    private final Runnable holdStart = () -> { if (this.okDown && this.holdArmed) startReorder(); };
+    private final Runnable holdStart = () -> { if (this.okDown && this.holdArmed) startHoldAction(); };
 
     // Corner capsule
     private List<HomeApps.Item> statusItems = new ArrayList<>();
@@ -373,7 +377,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         setContentDescription("Free My TV");
         drawerLayer.setVisibility(INVISIBLE);
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < topFocus.length; i++) {
             topFocus[i] = new Spring(0.26f, 0.85f, 0);
             topRects[i] = new RectF();
         }
@@ -397,6 +401,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     void resume() {
         if (running) return;
+        boolean restoreApps = returnToApps && sheetOpen;
+        returnToApps = false;
         running = true;
         checkNight(false);
         resumedAt = SystemClock.uptimeMillis();
@@ -409,10 +415,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (tvInputs != null) tvInputs.registerCallback(inputCallback, handler);
         handler.postDelayed(tick, 15_000);
         checkNotices();
-        reload();
+        reload(restoreApps);
         updatePalette();
         updatePicks();
-        if (sheetOpen) closeSheet();
+        if (sheetOpen && !restoreApps) closeSheet();
         sheet.snap(sheet.target);
         motionDirty = true;
         invalidateAll();
@@ -422,11 +428,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     }
 
     void pause() {
+        if (appStopDialog != null) appStopDialog.cancel();
+        if (appActionsDialog != null) appActionsDialog.cancel();
+        cancelHold();
         if (!running) return;
         running = false;
         cancelReorder(true);
-        handler.removeCallbacks(holdStart);
-        okHeld = holdArmed = false;
         Choreographer.getInstance().removeFrameCallback(this);
         handler.removeCallbacks(tick);
         handler.removeCallbacks(reloadSoon);
@@ -442,6 +449,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** Starting state (Home pressed while the home screen is showing): first app focused, drawer and sheet closed. */
     void reset(boolean animated) {
+        if (appStopDialog != null) appStopDialog.cancel();
+        if (appActionsDialog != null) appActionsDialog.cancel();
+        returnToApps = false;
+        cancelHold();
         wake();
         cancelReorder(!animated);
         zone = Z_SHELF;
@@ -464,12 +475,13 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         motionDirty = true;
     }
 
-    /** The three corner buttons, with their names in the current language. */
+    /** Corner buttons, with their names in the current language. */
     private void makeLightButtons() {
         lightButtons.clear();
         lightButtons.add(HomeApps.action(HomeApps.LIVE_TV, "live", Ui.tr("TV aberta", "Live TV"), "live_tv"));
         lightButtons.add(HomeApps.action(HomeApps.INPUTS, "inputs", Ui.tr("Entradas HDMI", "HDMI Inputs"), "hdmi"));
         lightButtons.add(HomeApps.action(HomeApps.SETTINGS, "settings", Ui.tr("Configurações", "Settings"), "settings"));
+        lightButtons.add(HomeApps.closeApps());
     }
 
     private static String[] tabs() {
@@ -1035,6 +1047,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         List<HomeApps.Item> list = new ArrayList<>();
         list.addAll(HomeApps.shortcuts(c));
         list.add(HomeApps.settings());
+        list.add(HomeApps.closeApps());
         return list;
     }
 
@@ -1189,7 +1202,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         Paint text = clock ? lClockQuote : lQuote;
         // The corner buttons' names appear in this row: the quotes fade out while one of them has focus.
         float fade = 1;
-        for (int i = 3; i < 6 && !clock; i++) fade = Math.min(fade, 1 - Ui.clamp(topFocus[i].value));
+        for (int i = 3; i < topFocus.length && !clock; i++) fade = Math.min(fade, 1 - Ui.clamp(topFocus[i].value));
         if (fade <= 0.01f) return;
         int textColor = text.getColor();
         text.setColor(Ui.alpha(textColor, fade));
@@ -1724,7 +1737,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     // MARK: - "All Apps" sheet
 
     private void setOthers(List<HomeApps.Item> list) {
+        String focusedPackage = gridIndex < others.size() ? others.get(gridIndex).pkg : null;
         others = list;
+        if (focusedPackage != null) {
+            for (int i = 0; i < list.size(); i++) if (focusedPackage.equals(list.get(i).pkg)) {
+                gridIndex = i;
+                break;
+            }
+        }
         gridFocus = new Spring[list.size()];
         for (int i = 0; i < gridFocus.length; i++) gridFocus[i] = new Spring(0.3f, 0.82f, 0);
         gridLabels = null;
@@ -1769,6 +1789,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         c.drawColor(0xA8000000);
         float shift = scroll.value * GRID_ROW * k;
         c.drawText(Ui.tr("Todos os Apps", "All Apps"), w / 2f, 124 * k - shift, sheetTitle);
+        gridLabel.setColor(0xBFFFFFFF);
+        c.drawText(Ui.tr("Segure OK para gerenciar aplicativos", "Hold OK to manage apps"),
+                w / 2f, 162 * k - shift, gridLabel);
         int n = others.size();
         if (gridLabels == null || gridLabels.length != n) {
             gridLabels = new String[n];
@@ -1917,6 +1940,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     // MARK: - Lists (in the background, so returning to the home screen isn't delayed)
 
     private void reload() {
+        reload(false);
+    }
+
+    private void reload(boolean refreshOpenSheet) {
         final Context c = getContext().getApplicationContext();
         LOADER.execute(() -> {
             final List<HomeApps.Item> s = HomeApps.shelf(c, true);
@@ -1927,7 +1954,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                 setShelf(s);
                 setStatusItems(st);
                 setDrawerItems(d);
-                if (!sheetOpen) setOthers(o);
+                if (!sheetOpen || refreshOpenSheet) setOthers(o);
             });
         });
     }
@@ -1962,17 +1989,18 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             case KeyEvent.KEYCODE_NUMPAD_ENTER:
                 // Opens on release, and only if the press happened here: the release of an OK pressed inside another
                 // app opens nothing.
-                // Held on a shelf app (~0.5 s): move mode. A timer, since not every remote repeats a held key, or the
+                // Held on a shelf app: move mode; in All Apps: app actions. A timer, since not every remote repeats, or the
                 // long-press repeat, whichever comes first; the release after a hold opens nothing.
                 if (down) {
                     if (e.getRepeatCount() == 0) {
                         okDown = true;
+                        okDownTime = e.getDownTime();
                         okHeld = false;
                         handler.removeCallbacks(holdStart);
-                        holdArmed = canReorder();
+                        holdArmed = canReorder() || canManageApp();
                         if (holdArmed) handler.postDelayed(holdStart, HOLD_MS);
                     } else if (okDown && holdArmed && e.isLongPress()) {
-                        startReorder();
+                        startHoldAction();
                     }
                 } else {
                     holdArmed = false;
@@ -2171,6 +2199,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             r = tileRects[shelfIndex];
         }
         click.open();
+        if (it.kind == HomeApps.CLOSE_APPS) {
+            if (appStopDialog == null) appStopDialog = new AppStopDialog(activity, this::showToast);
+            appStopDialog.show();
+            return;
+        }
         if (it.kind == HomeApps.ALL_APPS) {
             openSheet();
             return;
@@ -2191,7 +2224,32 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (!opened) showToast(Ui.tr("Não deu para abrir ", "Couldn't open ") + it.label + ".");
     }
 
-    // MARK: - Moving apps on the shelf
+    // MARK: - Held OK: app actions in All Apps, moving apps on the shelf
+
+    private void cancelHold() {
+        handler.removeCallbacks(holdStart);
+        okDown = okHeld = holdArmed = backDown = false;
+    }
+
+    private boolean canManageApp() {
+        if (!sheetOpen || gridIndex < 0 || gridIndex >= others.size()) return false;
+        HomeApps.Item item = others.get(gridIndex);
+        return item.kind == HomeApps.APP && item.pkg != null;
+    }
+
+    private void startHoldAction() {
+        if (!canManageApp()) {
+            startReorder();
+            return;
+        }
+        handler.removeCallbacks(holdStart);
+        holdArmed = okDown = false;
+        okHeld = true;
+        click.open();
+        if (appActionsDialog == null) appActionsDialog = new AppActionsDialog(activity, this::showToast,
+                () -> returnToApps = true, () -> reload(true));
+        appActionsDialog.show(others.get(gridIndex), okDownTime);
+    }
 
     private boolean canReorder() {
         if (sheetOpen || zone != Z_SHELF || shelfIndex >= shelf.size() || shelf.size() < 2) return false;
@@ -2597,7 +2655,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             x = topRects[i].right + 4 * k;
         }
         float b = L_BUTTON * k, right = CONTENT_R * k, cy = L_BUTTON_CY * k;
-        for (int i = 2; i >= 0; i--) {
+        for (int i = lightButtons.size() - 1; i >= 0; i--) {
             topRects[3 + i].set(right - b, cy - b / 2, right, cy + b / 2);
             right -= b + L_BUTTON_GAP * k;
         }
@@ -2808,12 +2866,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     }
 
     /**
-     * Live TV, HDMI Inputs and Settings: icon-only glass circles (light by day, smoked at night); the focused one turns
+     * Corner actions: icon-only glass circles (light by day, smoked at night); the focused one turns
      * white with a dark icon (the tvOS focus) and its name appears below it.
      */
     private void drawLightButtons(Canvas c) {
         applyTone();
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < lightButtons.size(); i++) {
             RectF r = topRects[3 + i];
             float f = Ui.clamp(topFocus[3 + i].value), s = 1 + 0.1f * f, rad = r.width() / 2 * s;
             cell.set(r.centerX() - rad, r.centerY() - rad, r.centerX() + rad, r.centerY() + rad);
@@ -2867,7 +2925,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                 break;
             case Z_TOP:
                 if (dx != 0) {
-                    int next = Math.max(picksOn() ? 0 : 3, Math.min(5, topIndex + dx));
+                    int next = Math.max(picksOn() ? 0 : 3, Math.min(2 + lightButtons.size(), topIndex + dx));
                     if (next == topIndex) return true;
                     topIndex = next;
                     if (topIndex < 3) selectTab(topIndex);   // like Apple TV tabs: focusing a tab selects it

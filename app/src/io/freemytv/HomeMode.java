@@ -108,6 +108,8 @@ final class HomeMode {
         "com.mitv.overseaservice", "com.xiaomi.mitv.tvmanager", "com.xiaomi.wfdsinkhelperservice",
         "com.mitv.milinkservice", "com.xiaomi.mitv.smartshare", "android.autoinstalls.config.xiaomi.amelie"));
 
+    static boolean isProtectedPackage(String pkg) { return PROTECTED.contains(pkg); }
+
     /** One switch at a time (jobs can overlap: a boot check and a button press). */
     private static final Object RUN = new Object();
     private static final Object FILE_LOCK = new Object();
@@ -137,7 +139,7 @@ final class HomeMode {
 
     /**
      * The remote's app buttons (RemoteKeys) need an accessibility service that only filters those keys. It is on only
-     * on TCL and Vestel TVs in Free My TV mode, and goes off with Original. Android turns it off when this app is updated, so the
+     * on TVs with a supported remote profile in Free My TV mode, and goes off with Original. Android turns it off when this app is updated, so the
      * boot check and an update turn it back on.
      */
     static void ensureRemoteService(Context c, long delayMs) {

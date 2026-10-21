@@ -32,7 +32,8 @@ final class Symbols {
         synchronized (CACHE) {
             if (CACHE.containsKey(name)) return CACHE.get(name);
             Bitmap b = null;
-            try (InputStream in = c.getAssets().open("symbols/" + name + ".png")) {
+            if ("close_apps".equals(name)) b = closeAppsIcon();
+            else try (InputStream in = c.getAssets().open("symbols/" + name + ".png")) {
                 b = BitmapFactory.decodeStream(in);
                 if (b != null) {
                     b = b.extractAlpha();
@@ -43,6 +44,24 @@ final class Symbols {
             CACHE.put(name, b);
             return b;
         }
+    }
+
+    /** Two app windows and a close mark, drawn at the same scale as the bundled symbols. */
+    private static Bitmap closeAppsIcon() {
+        Bitmap b = Bitmap.createBitmap(144, 144, Bitmap.Config.ALPHA_8);
+        Canvas canvas = new Canvas(b);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(0xFFFFFFFF);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(10);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        canvas.drawLine(22, 38, 22, 112, p);
+        canvas.drawLine(22, 112, 102, 112, p);
+        canvas.drawRoundRect(42, 20, 126, 92, 10, 10, p);
+        canvas.drawLine(71, 43, 97, 69, p);
+        canvas.drawLine(97, 43, 71, 69, p);
+        b.setHasMipMap(true);
+        return b;
     }
 
     static float width(Context c, String name, float pointSize) {

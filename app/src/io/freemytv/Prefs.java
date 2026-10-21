@@ -2,7 +2,6 @@ package io.freemytv;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.view.KeyEvent;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -11,8 +10,10 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Settings changed on the TV itself (Free My TV > Settings). config.properties only gives the first
@@ -21,12 +22,8 @@ import java.util.Locale;
 final class Prefs {
     private Prefs() {}
 
-    /** Remote keys we handle, with the app each opens until the user picks another. Codes read from the TCL's log. */
-    static final int KEY_NETFLIX = 4062, KEY_YOUTUBE = 190, KEY_PRIME = 4099, KEY_TCL_CHANNEL = 4020;
-    /** Vestel's Netflix button: STEM_1, which the TV hands to its Netflix key receiver (dumpsys window policy). */
-    static final int KEY_VESTEL_NETFLIX = KeyEvent.KEYCODE_STEM_1;
-    static final int[] KEYS = RemoteKeys.VESTEL ? new int[] {KEY_VESTEL_NETFLIX}
-            : new int[] {KEY_NETFLIX, KEY_YOUTUBE, KEY_PRIME, KEY_TCL_CHANNEL};
+    /** Stable storage codes for the buttons on this TV's remote. */
+    static final int[] KEYS = RemoteProfile.codes();
 
     /** Bumped by every change: screens compare it to know when to redraw. */
     static volatile int version;
@@ -123,13 +120,8 @@ final class Prefs {
     // MARK: - Remote buttons
 
     private static String defaultApp(int keyCode) {
-        switch (keyCode) {
-            case KEY_NETFLIX: case KEY_VESTEL_NETFLIX: return "com.netflix.ninja";
-            case KEY_YOUTUBE: return "com.google.android.youtube.tv";
-            case KEY_PRIME: return "com.amazon.amazonvideo.livingroom";
-            case KEY_TCL_CHANNEL: return "";
-            default: return "";
-        }
+        RemoteProfile.Button button = RemoteProfile.find(keyCode);
+        return button == null ? "" : button.defaultApp;
     }
 
     // The key service runs in its own small process (:keys), so that a busy home screen can never delay the TV's keys.
@@ -139,7 +131,7 @@ final class Prefs {
         return new File(app.getFilesDir(), "remote-keys.txt");
     }
 
-    private static final String[] keyApps = new String[KEYS.length];   // null = the default
+    private static final Map<Integer, String> keyApps = new LinkedHashMap<>();   // absent = the default
     private static long keysStamp = Long.MIN_VALUE;
 
     /** A temporary file per process (two can start together after an update), synced before it replaces the old one. */
@@ -160,43 +152,69 @@ final class Prefs {
     private static void migrateKeys() {
         if (keysFile().exists()) return;
         SharedPreferences old = sp();
-        boolean any = false;
-        for (int key : KEYS) any |= old.contains("key" + key);
-        if (!any) return;
         StringBuilder sb = new StringBuilder();
-        for (int key : KEYS) sb.append(key).append('=').append(old.getString("key" + key, defaultApp(key))).append('\n');
-        writeKeys(sb.toString());
+        for (Map.Entry<String, ?> entry : old.getAll().entrySet()) {
+            if (!entry.getKey().startsWith("key") || !(entry.getValue() instanceof String)) continue;
+            try {
+                int code = Integer.parseInt(entry.getKey().substring(3));
+                sb.append(code).append('=').append(entry.getValue()).append('\n');
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        if (sb.length() > 0) writeKeys(sb.toString());
     }
 
-    /** Package the key opens ("" = nothing). */
-    static String keyApp(int keyCode) {
-        synchronized (keyApps) {
-            File f = keysFile();
-            long stamp = f.lastModified() * 31 + f.length();   // 0 without the file: every key opens its default
-            if (stamp != keysStamp) {
-                keysStamp = stamp;
-                java.util.Arrays.fill(keyApps, null);
-                if (stamp != 0) {
-                    try (BufferedReader r = new BufferedReader(new FileReader(f))) {
-                        String line;
-                        while ((line = r.readLine()) != null) {
-                            for (int i = 0; i < KEYS.length; i++) {
-                                String prefix = KEYS[i] + "=";
-                                if (line.startsWith(prefix)) keyApps[i] = line.substring(prefix.length());
-                            }
-                        }
-                    } catch (IOException ignored) {
+    /** Called under keyApps' lock. A failed read keeps the last good cache and must never be followed by a write. */
+    private static boolean readKeys(boolean force) {
+        File f = keysFile();
+        long stamp = f.lastModified() * 31 + f.length();   // 0 without the file: every key opens its default
+        if (!force && stamp == keysStamp) return true;
+        Map<Integer, String> loaded = new LinkedHashMap<>();
+        if (f.exists()) {
+            try (BufferedReader r = new BufferedReader(new FileReader(f))) {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    int split = line.indexOf('=');
+                    if (split <= 0) continue;
+                    try {
+                        loaded.put(Integer.parseInt(line.substring(0, split)), line.substring(split + 1));
+                    } catch (NumberFormatException ignored) {
                     }
                 }
+            } catch (IOException ignored) {
+                return false;
             }
-            for (int i = 0; i < KEYS.length; i++) if (KEYS[i] == keyCode && keyApps[i] != null) return keyApps[i];
-            return defaultApp(keyCode);
+        }
+        keyApps.clear();
+        keyApps.putAll(loaded);
+        keysStamp = stamp;
+        return true;
+    }
+
+    /** Package the key opens ("" = leave the key to the TV). */
+    static String keyApp(int keyCode) {
+        synchronized (keyApps) {
+            readKeys(false);
+            String pkg = keyApps.get(keyCode);
+            return pkg != null ? pkg : defaultApp(keyCode);
         }
     }
 
     static void setKeyApp(int keyCode, String pkg) {
-        StringBuilder sb = new StringBuilder();
-        for (int key : KEYS) sb.append(key).append('=').append(key == keyCode ? pkg : keyApp(key)).append('\n');
-        if (writeKeys(sb.toString())) version++;
+        synchronized (keyApps) {
+            // Re-read before editing, including choices for buttons outside the current remote's profile.
+            if (!readKeys(true)) return;
+            Map<Integer, String> updated = new LinkedHashMap<>(keyApps);
+            if (pkg == null) updated.remove(keyCode);
+            else updated.put(keyCode, pkg);
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<Integer, String> entry : updated.entrySet()) {
+                sb.append(entry.getKey()).append('=').append(entry.getValue()).append('\n');
+            }
+            if (writeKeys(sb.toString())) {
+                keysStamp = Long.MIN_VALUE;
+                version++;
+            }
+        }
     }
 }

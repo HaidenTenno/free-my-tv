@@ -57,6 +57,7 @@ final class HomeApps {
     static final int APP = 0, LIVE_TV = 1, INPUT = 2, ALL_APPS = 3, SETTINGS = 4, ANDROID_SETTINGS = 5;
     /** The "HDMI Inputs" button: opens the bottom drawer on the inputs (the home screen handles it). */
     static final int INPUTS = 7;
+    static final int CLOSE_APPS = 8;
     /** Image size of each card (16:9; on screen it shows up to ~330 px wide). */
     static final int TILE_W = 384, TILE_H = 216;
 
@@ -212,6 +213,10 @@ final class HomeApps {
         return shortcut(SETTINGS, "settings", Ui.tr("Ajustes", "Settings"), "settings");
     }
 
+    static Item closeApps() {
+        return shortcut(CLOSE_APPS, "close-apps", Ui.tr("Fechar aplicativos", "Close apps"), "close_apps");
+    }
+
     /** Shortcuts in the bottom drawer. */
     static List<Item> drawerShortcuts() {
         List<Item> items = new ArrayList<>();
@@ -320,13 +325,10 @@ final class HomeApps {
         return "hdmi";
     }
 
-    /** Installed, enabled TV apps that are not on the home screen (the TV's Settings is among them), plus our own. */
+    /** All visible, enabled TV apps (including favorites), plus our settings shortcut. */
     static List<Item> others(Context c) {
         PackageManager pm = c.getPackageManager();
         Set<String> skip = new HashSet<>();
-        // A built-in app is skipped only while it is on the shelf: one the person took off must still be listed here.
-        List<String> onShelf = shelfPackages(c);
-        for (String[] d : SHELF) if (onShelf.contains(d[2])) skip.add(d[2]);
         skip.addAll(java.util.Arrays.asList(LIVE_TV_APPS));
         skip.add(c.getPackageName());
         skip.addAll(HIDDEN);

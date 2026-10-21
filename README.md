@@ -1,3 +1,11 @@
+> [!NOTE]
+> **This is an unofficial Android TV fork of [simbasjungles/free-my-tv](https://github.com/simbasjungles/free-my-tv).**
+> It adds remote-button profiles for specific TCL and Haier TVs, a **Close apps** button, an **Uninstall / App info** menu when holding OK in All Apps, and a fallback weather source. The app list includes favorites and refreshes after an uninstall.
+>
+> **Remote profiles are specific to the TV platform and the tested remotes.** They are selected from the TV's manufacturer/brand and device code, not by detecting the connected remote. Other models or regional/replacement remotes may need a different profile. See [Remote profile selection](#remote-profile-selection).
+>
+> Build this fork from source to get these additions. Links to the original project's website below refer to the upstream project.
+
 <div align="center">
 
 <img src="docs/assets/icon-512.png" width="96" alt="">
@@ -28,6 +36,23 @@ This fork adds Android TV customizations to [simbasjungles/free-my-tv](https://g
 The app-management flow has been checked on TCL Android 12 and Haier Android 14, including short/long OK presses, cancellation, uninstalling a disposable test app, and refreshing the app list. Holding OK on a favorite still starts reordering.
 
 Build this fork from source using the Android instructions below. Keep `freemytv.keystore` and `config.properties` backed up locally: the same signing key is required to update an existing installation. These files, generated APKs, and diagnostic logs are not part of the source repository.
+
+### Remote profile selection
+
+The profile is selected in [`RemoteProfile.java`](app/src/io/freemytv/RemoteProfile.java). A brand matches when **either** Android's `Build.MANUFACTURER` **or** `Build.BRAND` matches; the device code comes from `Build.DEVICE`. All comparisons ignore case.
+
+| TV reported by Android | Buttons listed in Remote Buttons |
+| --- | --- |
+| TCL, device `G08` | Иви, Okko, PREMIER, Wink, TCL Channel, VK Видео |
+| Haier, device `irvine` | Prime Video, EVO, Wink, Okko, Netflix, YouTube |
+| Other TCL devices | Original Netflix, YouTube, Prime Video, TCL Channel profile |
+| Vestel | Original Netflix profile |
+
+Upstream used the same fixed four-button profile for TCL TVs and a one-button profile for Vestel. It had no Haier remapping support. This fork keeps those existing profiles and adds two measured sets of button names and key codes. For example, the Haier YouTube button sends `247`; the original TCL profile uses `190` with `4065` as an alias.
+
+The new mappings were measured on a TCL G08 with a BT_RC813A_B9 remote and a Haier OLED TV AE (`irvine`) with a HaierTV-RC Consumer Control remote. The app does **not** read the paired remote's name or learn buttons automatically. A different remote on the same TV platform will currently select the same profile, so its buttons may need separate mapping.
+
+Each new profile defaults to **System action**, preserving the TV's own behavior until an app is assigned. Button labels, intercepted key codes and defaults now come from one profile definition; saved assignments are retained when editing the current profile. Remote remapping remains disabled on other unsupported TV brands.
 
 ## What you get
 

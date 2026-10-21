@@ -127,6 +127,7 @@ final class Spanish {
             case "not on the shelf": return "fuera del estante";
             case "Remote Buttons": return "Botones del control";
             case "Netflix button": return "Botón Netflix";
+            case "TV button": return "Botón TV";
             case "YouTube button": return "Botón YouTube";
             case "Prime Video button": return "Botón Prime Video";
             case "TCL Channel button": return "Botón TCL Channel";
@@ -138,6 +139,7 @@ final class Spanish {
             case "EVO button": return "Botón EVO";
             case "System action": return "Acción original";
             case "Press OK to choose an app.": return "Pulsa OK para elegir una aplicación.";
+            case "Press OK to choose an action.": return "Pulsa OK para elegir una acción.";
             case "System action keeps the TV's original button behavior.": return "Acción original conserva la función del botón en el televisor.";
             case "Nothing": return "Nada";
             case "Not installed": return "No instalada";

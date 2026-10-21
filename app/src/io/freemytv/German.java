@@ -135,6 +135,7 @@ final class German {
             case "not on the shelf": return "nicht in der Leiste";
             case "Remote Buttons": return "Fernbedienungstasten";
             case "Netflix button": return "Netflix-Taste";
+            case "TV button": return "TV-Taste";
             case "YouTube button": return "YouTube-Taste";
             case "Prime Video button": return "Prime-Video-Taste";
             case "TCL Channel button": return "TCL-Channel-Taste";
@@ -146,6 +147,7 @@ final class German {
             case "EVO button": return "EVO-Taste";
             case "System action": return "TV-Standardaktion";
             case "Press OK to choose an app.": return "OK drücken, um eine App auszuwählen.";
+            case "Press OK to choose an action.": return "OK drücken, um eine Aktion auszuwählen.";
             case "System action keeps the TV's original button behavior.": return "TV-Standardaktion behält die ursprüngliche Tastenfunktion bei.";
             case "Nothing": return "Nichts";
             case "Not installed": return "Nicht installiert";

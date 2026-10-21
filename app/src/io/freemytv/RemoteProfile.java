@@ -37,7 +37,9 @@ final class RemoteProfile {
             new Button(4185, "Botão PREMIER", "PREMIER button", ""),
             new Button(4164, "Botão Wink", "Wink button", ""),
             new Button(4020, "Botão TCL Channel", "TCL Channel button", ""),
-            new Button(4186, "Botão VK Vídeo", "VK Video button", "")
+            new Button(4186, "Botão VK Vídeo", "VK Video button", ""),
+            // TV icon: Linux KEY_EPG (365) maps to the firmware's TCL_EPG Android key (4001).
+            new Button(4001, "Botão TV", "TV button", LiveTv.TARGET)
     };
 
     // Measured on Haier OLED TV AE / HaierTV-RC Consumer Control. These are NOT the standard Android meanings.
@@ -47,7 +49,9 @@ final class RemoteProfile {
             new Button(200, "Botão Wink", "Wink button", ""),
             new Button(250, "Botão Okko", "Okko button", ""),
             new Button(265, "Botão Netflix", "Netflix button", ""),
-            new Button(247, "Botão YouTube", "YouTube button", "")
+            new Button(247, "Botão YouTube", "YouTube button", ""),
+            // TV icon: measured Android GUIDE (172), scan code KEY_PROGRAM (362).
+            new Button(172, "Botão TV", "TV button", LiveTv.TARGET)
     };
 
     private static final Button[] TCL_STANDARD = {

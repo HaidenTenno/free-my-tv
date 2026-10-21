@@ -94,7 +94,7 @@ final class HomeApps {
     };
     static final int MAX_SHELF = 8;
     /** Live TV apps of some brands (the antenna's channels open through the standard Android request first). */
-    static final String[] LIVE_TV_APPS = {"com.tcl.tv", "com.google.android.tv", "com.mediatek.wwtv.tvcenter", "com.sony.dtv.tvx"};
+    static final String[] LIVE_TV_APPS = LiveTv.PACKAGES;
     /** Kept out of "All Apps" (only hidden, still installed). Add the ones your TV shows that you never use. */
     private static final Set<String> HIDDEN = new HashSet<>(java.util.Arrays.asList(
             "com.google.android.play.games",        // Google Play Games
@@ -394,51 +394,9 @@ final class HomeApps {
         }
     }
 
-    /**
-     * Live TV: tune the antenna input directly. MediaTek TV Center otherwise restores the last source used, which can
-     * be HDMI, so its explicit activity receives the tuner URI. Other TV apps keep the standard channel-list request.
-     */
+    /** Shared native antenna-TV action for the home screen and remote buttons. */
     static Intent liveTv(Context c) {
-        PackageManager pm = c.getPackageManager();
-        String tuner = tunerInput(c);
-        Intent mediaTek = launchIntent(pm, "com.mediatek.wwtv.tvcenter");
-        if (mediaTek != null && tuner != null) {
-            return new Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(tuner))
-                    .setComponent(mediaTek.getComponent());
-        }
-        if (tuner != null) {
-            Intent channels = new Intent(Intent.ACTION_VIEW, TvContract.buildChannelsUriForInput(tuner));
-            if (channels.resolveActivity(pm) != null) return channels;
-        }
-        if (mediaTek != null) return mediaTek;
-        for (String pkg : LIVE_TV_APPS) {
-            Intent app = launchIntent(pm, pkg);
-            if (app != null) return app;
-        }
-        return null;
-    }
-
-    /**
-     * The TV's antenna (tuner) input, or null. The TV maker's hardware tuner comes first: system apps also declare
-     * tuner inputs (TCL: AirPlay), and Android names the hardware ones "…/HW<id>".
-     */
-    static String tunerInput(Context c) {
-        TvInputManager tim = (TvInputManager) c.getSystemService(Context.TV_INPUT_SERVICE);
-        if (tim == null) return null;
-        String system = null, fallback = null;
-        try {
-            for (TvInputInfo info : tim.getTvInputList()) {
-                if (info.getType() != TvInputInfo.TYPE_TUNER || info.isPassthroughInput()) continue;
-                if (info.getServiceInfo() != null && info.getServiceInfo().applicationInfo != null
-                        && (info.getServiceInfo().applicationInfo.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0) {
-                    if (info.getId().contains("/HW")) return info.getId();
-                    if (system == null) system = info.getId();
-                }
-                if (fallback == null) fallback = info.getId();
-            }
-        } catch (RuntimeException ignored) {
-        }
-        return system != null ? system : fallback;
+        return LiveTv.intent(c);
     }
 
     static Intent launchIntent(PackageManager pm, String pkg) {

@@ -1,5 +1,6 @@
 package io.freemytv;
 
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -7,7 +8,7 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 
 /**
- * Opens the selected app for the physical buttons described by RemoteProfile. The accessibility key filter sees
+ * Opens the selected app or live TV for the physical buttons described by RemoteProfile. The accessibility key filter sees
  * buttons that never reach an app's window, and consumes both halves of a remapped press before the TV handles it.
  */
 final class RemoteKeys {
@@ -26,12 +27,18 @@ final class RemoteKeys {
                 || (source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) return false;
         RemoteProfile.Button button = RemoteProfile.find(e.getKeyCode());
         if (button == null) return false;
-        String pkg = Prefs.keyApp(button.code);
-        if (pkg.isEmpty()) return false;   // "System action": the key goes on as if we weren't here
+        String target = Prefs.keyApp(button.code);
+        if (target.isEmpty()) return false;   // "System action": the key goes on as if we weren't here
         if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
-            Intent intent = launchIntent(c.getPackageManager(), pkg);
-            AppLog.w("remote key " + e.getKeyCode() + " -> " + pkg + (intent == null ? " (not installed)" : ""));
-            if (intent != null) c.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            Intent intent = LiveTv.TARGET.equals(target) ? LiveTv.intent(c) : launchIntent(c.getPackageManager(), target);
+            AppLog.w("remote key " + e.getKeyCode() + " -> " + target + (intent == null ? " (unavailable)" : ""));
+            if (intent != null) {
+                try {
+                    c.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                } catch (ActivityNotFoundException | SecurityException ex) {
+                    AppLog.w("couldn't open remote target " + target + ": " + ex.getMessage());
+                }
+            }
         }
         return true;
     }

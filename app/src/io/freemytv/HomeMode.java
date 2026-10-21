@@ -160,6 +160,14 @@ final class HomeMode {
 
     /** Adds ours to the enabled accessibility services (keeping the others, like TalkBack), or takes it out. */
     private static void remoteService(Context c, Adb adb, boolean on) throws IOException {
+        // Only this TCL platform needs a channel lookup. Use the already authorized local ADB
+        // connection when enabling/repairing Free My TV, including after an app update.
+        if (on && RemoteProfile.TCL_G08
+                && c.checkSelfPermission(LiveTv.READ_CHANNELS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            adb.shell("pm grant " + PKG + " " + LiveTv.READ_CHANNELS);
+            if (c.checkSelfPermission(LiveTv.READ_CHANNELS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                AppLog.w("TV listings permission unavailable; TCL will open channel setup options");
+        }
         String current = adb.shell("settings get secure enabled_accessibility_services").trim();
         if (current.equals("null")) current = "";
         List<String> others = new ArrayList<>();

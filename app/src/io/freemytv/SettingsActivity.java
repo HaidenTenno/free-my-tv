@@ -687,7 +687,7 @@ public class SettingsActivity extends Activity {
             return v;
         }
 
-        /** Installed TV apps, by name, after "System action": what a remote button can open. */
+        /** System action, live TV, then installed apps by name: what a remote button can open. */
         private void loadApps() {
             PackageManager pm = getContext().getPackageManager();
             List<String[]> found = new ArrayList<>();
@@ -703,6 +703,8 @@ public class SettingsActivity extends Activity {
             appLabels.clear();
             appPkgs.add("");
             appLabels.add(Ui.tr("Ação original", "System action"));
+            appPkgs.add(LiveTv.TARGET);
+            appLabels.add(Ui.tr("TV ao Vivo", "Live TV"));
             for (String[] f : found) {
                 appPkgs.add(f[0]);
                 appLabels.add(f[1]);
@@ -945,7 +947,7 @@ public class SettingsActivity extends Activity {
             }
             Paint hint = Ui.text(Ui.regular, 23 * k, 0x8CFFFFFF);
             float hy = (LIST_TOP + 20 + labels.length * (LIST_ROW_H + LIST_ROW_GAP) + 36) * k;
-            c.drawText(keys ? Ui.tr("OK escolhe o aplicativo.", "Press OK to choose an app.")
+            c.drawText(keys ? Ui.tr("OK escolhe a ação.", "Press OK to choose an action.")
                     : Ui.tr("OK ou as setas mudam o valor.", "OK or the arrows change the value."), LIST_X * k + 30 * k, hy, hint);
             if (keys) {
                 c.drawText(RemoteProfile.TCL_G08 || RemoteProfile.HAIER_IRVINE

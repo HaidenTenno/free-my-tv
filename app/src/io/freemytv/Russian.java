@@ -133,6 +133,7 @@ final class Russian {
             case "on the shelf, place ": return "в избранном, позиция ";
             case "not on the shelf": return "не в избранном";
             case "Remote Buttons": return "Кнопки пульта";
+            case "TV button": return "Кнопка TV";
             case "Netflix button": return "Кнопка Netflix";
             case "YouTube button": return "Кнопка YouTube";
             case "Prime Video button": return "Кнопка Prime Video";
@@ -145,6 +146,7 @@ final class Russian {
             case "EVO button": return "Кнопка EVO";
             case "System action": return "Штатное действие";
             case "Press OK to choose an app.": return "Нажмите OK, чтобы выбрать приложение.";
+            case "Press OK to choose an action.": return "Нажмите OK, чтобы выбрать действие.";
             case "System action keeps the TV's original button behavior.": return "«Штатное действие» сохраняет поведение кнопки.";
             case "Nothing": return "Ничего";
             case "Not installed": return "Не установлено";

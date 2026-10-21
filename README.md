@@ -1,6 +1,6 @@
 > [!NOTE]
 > **This is an unofficial Android TV fork of [simbasjungles/free-my-tv](https://github.com/simbasjungles/free-my-tv).**
-> It adds remote-button profiles for specific TCL and Haier TVs, a shared **Live TV** action for the antenna shortcut and remote buttons, a **Close apps** button, an **Uninstall / App info** menu when holding OK in All Apps, and a fallback weather source. The app list includes favorites and refreshes after an uninstall.
+> It adds remote-button profiles for specific TCL and Haier TVs, a shared **Live TV** action for the antenna shortcut and remote buttons, configurable **Screensaver and sleep** timers, a **Close apps** button, an **Uninstall / App info** menu when holding OK in All Apps, and a fallback weather source. The app list includes favorites and refreshes after an uninstall.
 >
 > **Remote profiles are specific to the TV platform and the tested remotes.** They are selected from the TV's manufacturer/brand and device code, not by detecting the connected remote. Other models or regional/replacement remotes may need a different profile. See [Remote profile selection](#remote-profile-selection).
 >
@@ -28,6 +28,8 @@ Open source. Built with Claude Code. One button to undo.
 This fork adds Android TV customizations to [simbasjungles/free-my-tv](https://github.com/simbasjungles/free-my-tv):
 
 - Remote-button profiles for TCL G08 and Haier irvine TVs, with the labels and key codes used by their remotes.
+- **Screensaver and sleep** settings that read the TV's current values, keep edits as drafts until **Apply**, and offer separate screensaver, idle sleep, and sleep-even-during-playback timers. These are system timers, not timers that require the launcher to stay open. Both idle delays count from the last activity, not one after the other. Manufacturer-specific timers such as no-signal power-off remain in the TV's own settings.
+- A visible clock and background while screensaver photos load, including when cached recommendations have no usable image yet.
 - A **Close apps** shortcut that previews running apps before stopping them. Stopping a VPN also disconnects it; app data and accounts are retained.
 - An app-management menu in **All Apps**: hold OK to request uninstalling an app through Android's confirmation screen or open its app settings. System apps offer app settings only. The list includes favorites and refreshes after an uninstall.
 - A fallback weather source when the primary Open-Meteo endpoint is unavailable, with a freshness check on the fallback data.

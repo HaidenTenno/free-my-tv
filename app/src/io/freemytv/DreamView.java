@@ -104,13 +104,11 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     private final Matrix matrix = new Matrix();
     private final float[] placeA = new float[3], placeB = new float[3];
     private final Paint photoPaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
-    private final Paint black = new Paint();
     private final Paint shadowPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final Paint glassPaint = new Paint();
     private final Set<String> failed = new HashSet<>();     // Recs.key: a movie and a series can have the same ID
     private RuntimeShader glassShader;
     private boolean running, dirty = true, chromeDirty = true;
-    private boolean fallback;       // the aurora with the clock (no photos)
     private boolean decoding;
     private int generation, slides;
     private Slide current, incoming, prepared;
@@ -153,7 +151,6 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             AppLog.w("glass clock unavailable: " + e.getMessage());
             glassShader = null;
         }
-        black.setColor(0xFF000000);
         shadowPaint.setColor(0xFF000000);
     }
 
@@ -164,7 +161,6 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         startedAt = clock();
         lastFrame = 0;
         failed.clear();
-        fallback = recs.showcase().isEmpty();
         data.addListener(this);
         recs.addListener(this);
         data.refreshIfStale();
@@ -274,10 +270,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             Recs.Pick p = list.get((start + i) % list.size());
             if (!failed.contains(Recs.key(p))) pick = p;
         }
-        if (pick == null) {
-            if (current == null) fallback = true;
-            return;
-        }
+        if (pick == null) return;
         if (last != null && Recs.key(pick).equals(Recs.key(last.pick))) {
             // Only one photo: the same one again, with a different motion.
             prepared = newSlide(pick, last.image, last.frost, last.lightCaption, last.lightClock);
@@ -423,11 +416,11 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
 
         float first = current == null ? 0 : fadeIn(up - firstAt, FIRST_MS);
         if (current == null || first < 1) {
-            if (fallback) drawFallback(canvas, up, current == null ? 1 : 1 - first);
-            else canvas.drawRect(0, 0, w, h, black);
+            // Cached recommendations do not guarantee a decoded photo. Keep the clock visible while waiting,
+            // then crossfade over the same background instead of briefly switching to black.
+            drawFallback(canvas, up, 1 - first);
         }
         if (current == null) return;
-        if (fallback && first >= 1) fallback = false;
 
         place(current, up, placeA);
         float e = incoming == null ? 0 : fadeIn(up - incoming.startedAt, FADE_MS);

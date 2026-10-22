@@ -638,7 +638,7 @@ public class SettingsActivity extends Activity {
             return v;
         }
 
-        /** System action, live TV, then installed apps by name: what a remote button can open. */
+        /** System action, native TV/settings, then installed apps by name: what a remote button can open. */
         private void loadApps() {
             PackageManager pm = getContext().getPackageManager();
             List<String[]> found = new ArrayList<>();
@@ -656,6 +656,8 @@ public class SettingsActivity extends Activity {
             appLabels.add(Ui.tr("Ação original", "System action"));
             appPkgs.add(LiveTv.TARGET);
             appLabels.add(Ui.tr("TV ao Vivo", "Live TV"));
+            appPkgs.add(RemoteKeys.TV_SETTINGS);
+            appLabels.add(Ui.tr("Ajustes da TV", "TV Settings"));
             for (String[] f : found) {
                 appPkgs.add(f[0]);
                 appLabels.add(f[1]);

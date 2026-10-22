@@ -21,6 +21,7 @@ public final class RemoteTests {
         context = new Context(Files.createTempDirectory(Path.of(args[0]), "keys-").toFile());
         Prefs.init(context);
         coldProviderAndPressPair();
+        settingsTarget();
         boundedLaunchQueue();
         systemActionSupersedesSlowLaunch();
         navigationCancelsButVolumeDoesNot();
@@ -46,6 +47,21 @@ public final class RemoteTests {
         await(() -> context.launches.size() == 1, "TV target was not launched");
         check(ContentResolver.queries.get() == 1, "held key queued repeated TV requests");
         ContentResolver.entered = ContentResolver.release = null;
+    }
+
+    private static void settingsTarget() throws Exception {
+        int launches = context.launches.size();
+        int lookups = PackageManager.appLookups.get();
+        Prefs.setKeyApp(4143, RemoteKeys.TV_SETTINGS);
+        check(key(KeyEvent.ACTION_DOWN, 4143, 0, 1), "settings DOWN must be consumed");
+        for (int repeat = 1; repeat <= 3; repeat++)
+            check(key(KeyEvent.ACTION_DOWN, 4143, repeat, 1), "settings repeat must be consumed");
+        check(key(KeyEvent.ACTION_UP, 4143, 0, 1), "settings UP must be consumed");
+        awaitIdle();
+        check(context.launches.size() == launches + 1, "settings must open once per press");
+        check(android.provider.Settings.ACTION_SETTINGS.equals(context.launches.get(launches).action),
+                "settings target must use the system settings action");
+        check(PackageManager.appLookups.get() == lookups, "settings target was treated as an app package");
     }
 
     private static void boundedLaunchQueue() throws Exception {

@@ -143,6 +143,7 @@ final class German {
             case "Remote Buttons": return "Fernbedienungstasten";
             case "Netflix button": return "Netflix-Taste";
             case "TV button": return "TV-Taste";
+            case "Settings button": return "Einstellungstaste";
             case "YouTube button": return "YouTube-Taste";
             case "Prime Video button": return "Prime-Video-Taste";
             case "TCL Channel button": return "TCL-Channel-Taste";

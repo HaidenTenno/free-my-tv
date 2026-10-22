@@ -3,6 +3,7 @@ package io.freemytv;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.provider.Settings;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 
@@ -15,6 +16,8 @@ import java.util.Map;
  */
 final class RemoteKeys {
     private RemoteKeys() {}
+
+    static final String TV_SETTINGS = "@tv_settings";
 
     // Keep the decision for the whole press, even if its assignment changes before ACTION_UP.
     // A small cap also bounds stale entries from disconnected remotes that never send ACTION_UP.
@@ -107,6 +110,7 @@ final class RemoteKeys {
             }
             try {
                 Intent intent = LiveTv.TARGET.equals(request.target) ? LiveTv.intent(request.context)
+                        : TV_SETTINGS.equals(request.target) ? new Intent(Settings.ACTION_SETTINGS)
                         : launchIntent(request.context.getPackageManager(), request.target);
                 // A newer button press supersedes a slow provider lookup that has just finished.
                 if (request.sequence != latestLaunch) continue;

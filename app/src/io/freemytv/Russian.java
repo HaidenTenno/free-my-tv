@@ -175,6 +175,7 @@ final class Russian {
             case "not on the shelf": return "не в избранном";
             case "Remote Buttons": return "Кнопки пульта";
             case "TV button": return "Кнопка TV";
+            case "Settings button": return "Кнопка настроек";
             case "Netflix button": return "Кнопка Netflix";
             case "YouTube button": return "Кнопка YouTube";
             case "Prime Video button": return "Кнопка Prime Video";

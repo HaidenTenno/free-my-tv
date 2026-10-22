@@ -47,14 +47,16 @@ The buttons are defined in [`RemoteProfile.java`](app/src/io/freemytv/RemoteProf
 
 | TV reported by Android | Buttons listed in Remote Buttons |
 | --- | --- |
-| TCL, device `G08` | TV, Иви, Okko, PREMIER, Wink, TCL Channel, VK Видео |
-| Haier, device `irvine` | TV, Prime Video, EVO, Wink, Okko, Netflix, YouTube |
+| TCL, device `G08` | TV, Иви, Okko, PREMIER, Wink, TCL Channel, VK Видео, Settings |
+| Haier, device `irvine` | TV, Prime Video, EVO, Wink, Okko, Netflix, YouTube, Settings |
 | Other TCL devices | Original Netflix, YouTube, Prime Video, TCL Channel profile |
 | Vestel | Original Netflix profile |
 
 Upstream used the same fixed four-button profile for TCL TVs and a one-button profile for Vestel. It had no Haier remapping support. This fork keeps those existing profiles and adds two measured sets of button names and key codes. For example, the Haier YouTube button sends `247`; the original TCL profile uses `190` with `4065` as an alias.
 
 The new mappings were measured on a TCL G08 with a BT_RC813A_B9 remote and a Haier OLED TV AE (`irvine`) with a HaierTV-RC Consumer Control remote. The app does **not** read the paired remote's name or learn buttons automatically. A different remote on the same TV platform will currently select the same profile, so its buttons may need separate mapping.
+
+The gear button on both tested remotes defaults to **TV Settings**, opening the full Android TV settings directly instead of the Google TV notification/quick-settings panel. Both buttons send Android `NOTIFICATION` (`83`), with Linux scan code `233` on TCL and vendor scan code `240` on Haier. **TV Settings** is also available as an assignment for any supported remote button.
 
 The app-branded buttons in the new profiles default to **System action**, preserving the TV's own behavior until an app is assigned. The TV-icon button defaults to **Live TV**, which opens the same native antenna input as the home-screen shortcut. It can also be assigned to another installed app or restored to **System action**. Channel tuning remains in the TV's own interface; the launcher does not scan or change saved channels. Button labels, intercepted key codes and defaults now come from one profile definition; saved assignments are retained when editing the current profile. Remote remapping remains disabled on other unsupported TV brands.
 

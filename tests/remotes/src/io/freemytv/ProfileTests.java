@@ -7,14 +7,16 @@ public final class ProfileTests {
     public static void main(String[] args) {
         switch (args[0]) {
             case "tcl-ru":
-                codes(4143, 4100, 4185, 4164, 4020, 4186, 4001);
+                codes(4143, 4100, 4185, 4164, 4020, 4186, 4001, 83);
+                check(RemoteKeys.TV_SETTINGS.equals(RemoteProfile.find(83).defaultApp), "TCL gear settings default missing");
                 check(RemoteProfile.supported() && TvPlatform.TCL_G08, "TCL platform/profile not recognized");
                 check(LiveTv.TARGET.equals(RemoteProfile.find(4001).defaultApp), "TCL TV default changed");
                 for (int code : new int[] {4143, 4100, 4185, 4164, 4020, 4186})
                     check(RemoteProfile.find(code).defaultApp.isEmpty(), "TCL app default changed");
                 break;
             case "haier":
-                codes(249, 129, 200, 250, 265, 247, 172);
+                codes(249, 129, 200, 250, 265, 247, 172, 83);
+                check(RemoteKeys.TV_SETTINGS.equals(RemoteProfile.find(83).defaultApp), "Haier gear settings default missing");
                 check(RemoteProfile.supported() && TvPlatform.HAIER_IRVINE, "Haier platform/profile not recognized");
                 check(LiveTv.TARGET.equals(RemoteProfile.find(172).defaultApp), "Haier TV default changed");
                 for (int code : new int[] {249, 129, 200, 250, 265, 247})

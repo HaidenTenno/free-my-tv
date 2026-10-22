@@ -135,6 +135,7 @@ final class Spanish {
             case "Remote Buttons": return "Botones del control";
             case "Netflix button": return "Botón Netflix";
             case "TV button": return "Botón TV";
+            case "Settings button": return "Botón de ajustes";
             case "YouTube button": return "Botón YouTube";
             case "Prime Video button": return "Botón Prime Video";
             case "TCL Channel button": return "Botón TCL Channel";
